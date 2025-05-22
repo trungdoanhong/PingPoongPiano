@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Piano Tiles</title>
+    <link rel="manifest" href="data:application/manifest+json,{&quot;display&quot;:&quot;fullscreen&quot;,&quot;orientation&quot;:&quot;landscape&quot;}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="orientation-message">
+        <div>
+            <p>Please rotate your device to landscape mode to play the game</p>
+            <div style="margin-top: 20px; font-size: 40px; transform: rotate(90deg);">↻</div>
+        </div>
+    </div>
+    
+    <div id="game-container">
+        <div class="control-panel">
+            <div id="score-panel">Score: <span id="score">0</span></div>
+            
+            <div id="controls-container">
+                <div id="speed-control">
+                    <span>Speed:</span>
+                    <div class="control-btn" id="speed-down">-</div>
+                    <div class="control-value" id="speed-value">0.2</div>
+                    <div class="control-btn" id="speed-up">+</div>
+                </div>
+                
+                <div id="margin-control">
+                    <span>Margin:</span>
+                    <div class="control-btn" id="margin-down">-</div>
+                    <div class="control-value" id="margin-value">0%</div>
+                    <div class="control-btn" id="margin-up">+</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="menu-bar">
+            <div class="menu-item active" data-mode="game">Piano Game</div>
+            <div class="menu-item" data-mode="analyzer">Audio Analyzer</div>
+            <!-- Add more menu items here for future modules -->
+        </div>
+        
+        <div id="game-board">
+            <!-- Piano keys will be created here -->
+        </div>
+        
+        <div id="audio-analyzer">
+            <div id="audio-controls">
+                <div id="start-recording">Start Recording</div>
+                <div id="stop-recording">Stop Recording</div>
+            </div>
+            
+            <div id="visualizer-container">
+                <canvas id="waveform"></canvas>
+            </div>
+            
+            <div id="note-display">
+                <div id="detected-note">--</div>
+                <div id="detected-frequency">0 Hz</div>
+            </div>
+        </div>
+        
+        <div id="start-screen">
+            <h1>Piano Tiles</h1>
+            <p>Tap the black tiles as they appear. Play along with Happy Birthday!</p>
+            <button id="start-button">Start Game</button>
+        </div>
+        
+        <div id="game-over">
+            <h1>Game Over</h1>
+            <p>Your score: <span id="final-score">0</span></p>
+            <button id="restart-button">Play Again</button>
+        </div>
+        
+        <div id="fullscreen-hint">
+            Fullscreen
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html> 
