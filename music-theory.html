@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Theory Guide - Piano Tiles</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow-y: auto;
+            background: linear-gradient(135deg, #1e272e 0%, #121a21 100%);
+        }
+        
+        .theory-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            color: white;
+            overflow-y: auto;
+            min-height: 100%;
+        }
+
+        .theory-content {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            overflow: visible;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 20px;
+        }
+
+        .section:last-child {
+            border-bottom: none;
+        }
+
+        .section h2 {
+            color: #0abde3;
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+
+        .section h3 {
+            color: #48dbfb;
+            font-size: 20px;
+            margin: 20px 0 10px;
+        }
+
+        .section p {
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .note-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .note-table th, .note-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .note-table th {
+            background: rgba(10, 189, 227, 0.3);
+            font-weight: 600;
+        }
+
+        .note-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .note-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .note-example {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            line-height: 40px;
+            text-align: center;
+            margin: 5px;
+            border-radius: 5px;
+            background: linear-gradient(to bottom, #0abde3 0%, #48dbfb 100%);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            font-weight: 600;
+        }
+
+        .black-key {
+            background: linear-gradient(to bottom, #272e38 0%, #1e252e 100%);
+        }
+
+        .back-button {
+            display: inline-block;
+            padding: 10px 20px;
+            background: rgba(10, 189, 227, 0.7);
+            color: white;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 20px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .back-button:hover {
+            background: rgba(10, 189, 227, 0.9);
+            transform: translateY(-2px);
+        }
+
+        .note-diagram {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+            justify-content: center;
+        }
+
+        .rhythm-example {
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .rhythm-example img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 768px) {
+            .theory-content {
+                padding: 20px 15px;
+            }
+            
+            .section h2 {
+                font-size: 22px;
+            }
+            
+            .section h3 {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="theory-container">
+        <a href="index.html" class="back-button">← Back to Piano Tiles</a>
+        
+        <div class="theory-content">
+            <h1 style="text-align: center; margin-bottom: 30px; color: #0abde3;">Piano Music Theory Guide</h1>
+            
+            <div class="section">
+                <h2>Basic Music Notation</h2>
+                <p>Music is written on a staff, which consists of five lines and four spaces. Notes are placed on the lines and spaces to indicate their pitch. The higher a note appears on the staff, the higher its pitch.</p>
+                
+                <h3>Notes and Pitch</h3>
+                <p>The musical alphabet consists of seven notes: A, B, C, D, E, F, and G. These notes repeat in a cycle as you move up or down in pitch. On a piano, the white keys represent these natural notes.</p>
+                
+                <div class="note-diagram">
+                    <div class="note-example">C</div>
+                    <div class="note-example black-key">C♯</div>
+                    <div class="note-example">D</div>
+                    <div class="note-example black-key">D♯</div>
+                    <div class="note-example">E</div>
+                    <div class="note-example">F</div>
+                    <div class="note-example black-key">F♯</div>
+                    <div class="note-example">G</div>
+                    <div class="note-example black-key">G♯</div>
+                    <div class="note-example">A</div>
+                    <div class="note-example black-key">A♯</div>
+                    <div class="note-example">B</div>
+                </div>
+                
+                <h3>Sharps and Flats</h3>
+                <p>The black keys on a piano represent sharps (♯) and flats (♭). A sharp raises a note by a half step, while a flat lowers it by a half step. For example, F♯ is the black key immediately to the right of F, and B♭ is the black key immediately to the left of B.</p>
+                
+                <table class="note-table">
+                    <tr>
+                        <th>Note</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>C</td>
+                        <td>The white key to the left of a group of two black keys</td>
+                    </tr>
+                    <tr>
+                        <td>D</td>
+                        <td>The white key between the two black keys</td>
+                    </tr>
+                    <tr>
+                        <td>E</td>
+                        <td>The white key to the right of a group of two black keys</td>
+                    </tr>
+                    <tr>
+                        <td>F</td>
+                        <td>The white key to the left of a group of three black keys</td>
+                    </tr>
+                    <tr>
+                        <td>G</td>
+                        <td>The white key between the first and second black keys in a group of three</td>
+                    </tr>
+                    <tr>
+                        <td>A</td>
+                        <td>The white key between the second and third black keys in a group of three</td>
+                    </tr>
+                    <tr>
+                        <td>B</td>
+                        <td>The white key to the right of a group of three black keys</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="section">
+                <h2>Rhythm and Time</h2>
+                <p>Rhythm is the pattern of time in music. It's organized into measures, which are divided by bar lines. Each measure contains a specific number of beats, as determined by the time signature.</p>
+                
+                <h3>Note Durations</h3>
+                <p>Notes have different durations, indicating how long they should be played. The main note values include:</p>
+                
+                <table class="note-table">
+                    <tr>
+                        <th>Note</th>
+                        <th>Name</th>
+                        <th>Duration</th>
+                    </tr>
+                    <tr>
+                        <td>𝅝</td>
+                        <td>Whole note</td>
+                        <td>4 beats</td>
+                    </tr>
+                    <tr>
+                        <td>𝅗𝅥</td>
+                        <td>Half note</td>
+                        <td>2 beats</td>
+                    </tr>
+                    <tr>
+                        <td>𝅘𝅥</td>
+                        <td>Quarter note</td>
+                        <td>1 beat</td>
+                    </tr>
+                    <tr>
+                        <td>𝅘𝅥𝅮</td>
+                        <td>Eighth note</td>
+                        <td>1/2 beat</td>
+                    </tr>
+                    <tr>
+                        <td>𝅘𝅥𝅯</td>
+                        <td>Sixteenth note</td>
+                        <td>1/4 beat</td>
+                    </tr>
+                </table>
+                
+                <h3>Time Signatures</h3>
+                <p>The time signature appears at the beginning of a piece and consists of two numbers. The top number indicates how many beats are in each measure, while the bottom number indicates what type of note gets one beat.</p>
+                
+                <p>Common time signatures include:</p>
+                <ul>
+                    <li><strong>4/4</strong>: Four quarter notes per measure (most common)</li>
+                    <li><strong>3/4</strong>: Three quarter notes per measure (waltz time)</li>
+                    <li><strong>2/4</strong>: Two quarter notes per measure (march time)</li>
+                    <li><strong>6/8</strong>: Six eighth notes per measure (often felt as two groups of three)</li>
+                </ul>
+            </div>
+            
+            <div class="section">
+                <h2>Scales and Keys</h2>
+                <p>A scale is a sequence of notes arranged in ascending or descending order. The most common scales in Western music are the major and minor scales.</p>
+                
+                <h3>Major Scale</h3>
+                <p>The major scale has a bright, happy sound. The pattern of whole steps (W) and half steps (H) in a major scale is: W-W-H-W-W-W-H.</p>
+                <p>For example, the C Major scale consists of the notes: C, D, E, F, G, A, B, C.</p>
+                
+                <h3>Minor Scale</h3>
+                <p>The natural minor scale has a darker, more melancholic sound. The pattern of whole steps and half steps is: W-H-W-W-H-W-W.</p>
+                <p>For example, the A Minor scale consists of the notes: A, B, C, D, E, F, G, A.</p>
+                
+                <h3>Key Signatures</h3>
+                <p>A key signature appears at the beginning of a piece and indicates which notes should be consistently played as sharps or flats throughout the piece. It establishes the key of the music.</p>
+            </div>
+            
+            <div class="section">
+                <h2>Chords</h2>
+                <p>A chord is a group of three or more notes played simultaneously. The most common chords are triads, which consist of three notes built on intervals of thirds.</p>
+                
+                <h3>Major Triad</h3>
+                <p>A major triad consists of a root note, a major third (4 half steps above the root), and a perfect fifth (7 half steps above the root).</p>
+                <p>For example, a C Major triad consists of the notes C, E, and G.</p>
+                
+                <h3>Minor Triad</h3>
+                <p>A minor triad consists of a root note, a minor third (3 half steps above the root), and a perfect fifth (7 half steps above the root).</p>
+                <p>For example, an A Minor triad consists of the notes A, C, and E.</p>
+                
+                <h3>Chord Progressions</h3>
+                <p>A chord progression is a sequence of chords played in succession. Common chord progressions in popular music include:</p>
+                <ul>
+                    <li><strong>I-IV-V</strong>: The foundation of countless songs</li>
+                    <li><strong>I-V-vi-IV</strong>: Used in many pop songs</li>
+                    <li><strong>ii-V-I</strong>: Common in jazz music</li>
+                </ul>
+            </div>
+            
+            <div class="section">
+                <h2>Practice Tips</h2>
+                <ul>
+                    <li><strong>Start slow</strong>: Begin practicing at a tempo where you can play accurately, then gradually increase speed.</li>
+                    <li><strong>Use a metronome</strong>: This helps develop a consistent sense of timing.</li>
+                    <li><strong>Practice regularly</strong>: Consistent, daily practice is more effective than occasional long sessions.</li>
+                    <li><strong>Learn scales</strong>: They build finger strength and dexterity while teaching you about keys.</li>
+                    <li><strong>Play by ear</strong>: Try to figure out simple melodies without sheet music to develop your musical ear.</li>
+                    <li><strong>Record yourself</strong>: This helps you hear mistakes and track your progress.</li>
+                </ul>
+            </div>
+        </div>
+        
+        <a href="index.html" class="back-button" style="display: block; text-align: center; margin: 0 auto 30px;">Return to Piano Tiles</a>
+    </div>
+</body>
+</html> 

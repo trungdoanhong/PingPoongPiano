@@ -24,6 +24,16 @@
             <div id="score-panel">Score: <span id="score">0</span></div>
             
             <div id="controls-container">
+                <div id="menu-button">
+                    Menu ▾
+                    <div id="dropdown-menu">
+                        <div class="menu-item active" data-mode="game">Piano Game</div>
+                        <div class="menu-item" data-mode="analyzer">Audio Analyzer</div>
+                        <div class="menu-item" data-mode="song-manager">Song Manager</div>
+                        <div class="menu-item" data-mode="music-theory">Music Theory</div>
+                    </div>
+                </div>
+                
                 <div id="speed-control">
                     <span>Speed:</span>
                     <div class="control-btn" id="speed-down">-</div>
@@ -39,15 +49,23 @@
                 </div>
             </div>
         </div>
-
-        <div id="menu-bar">
-            <div class="menu-item active" data-mode="game">Piano Game</div>
-            <div class="menu-item" data-mode="analyzer">Audio Analyzer</div>
-            <!-- Add more menu items here for future modules -->
-        </div>
         
-        <div id="game-board">
-            <!-- Piano keys will be created here -->
+        <div id="game-content">
+            <div id="game-board">
+                <!-- Piano keys will be created here -->
+            </div>
+            
+            <div id="start-screen">
+                <h1>Piano Tiles</h1>
+                <p>Tap the black tiles as they appear. Play along with Happy Birthday!</p>
+                <button id="start-button">Start Game</button>
+            </div>
+            
+            <div id="game-over">
+                <h1>Game Over</h1>
+                <p>Your score: <span id="final-score">0</span></p>
+                <button id="restart-button">Play Again</button>
+            </div>
         </div>
         
         <div id="audio-analyzer">
@@ -58,24 +76,74 @@
             
             <div id="visualizer-container">
                 <canvas id="waveform"></canvas>
-            </div>
-            
-            <div id="note-display">
-                <div id="detected-note">--</div>
-                <div id="detected-frequency">0 Hz</div>
+                <div id="note-display">
+                    <div id="detected-note">--</div>
+                    <div id="detected-frequency">0 Hz</div>
+                </div>
             </div>
         </div>
         
-        <div id="start-screen">
-            <h1>Piano Tiles</h1>
-            <p>Tap the black tiles as they appear. Play along with Happy Birthday!</p>
-            <button id="start-button">Start Game</button>
-        </div>
-        
-        <div id="game-over">
-            <h1>Game Over</h1>
-            <p>Your score: <span id="final-score">0</span></p>
-            <button id="restart-button">Play Again</button>
+        <div id="song-manager">
+            <div class="song-manager-content">
+                <div class="song-list-container">
+                    <h2>Your Songs</h2>
+                    <div class="song-controls">
+                        <button id="new-song-btn">New Song</button>
+                        <button id="import-song-btn">Import</button>
+                    </div>
+                    <div id="song-list">
+                        <!-- Songs will be listed here -->
+                        <div class="song-item default-song">
+                            <div class="song-name">Happy Birthday</div>
+                            <div class="song-actions">
+                                <button class="edit-song-btn">Edit</button>
+                                <button class="play-song-btn">Play</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="song-editor">
+                    <h2>Song Editor</h2>
+                    <div class="editor-controls">
+                        <div class="song-info">
+                            <input type="text" id="song-name" placeholder="Song Name">
+                            <div class="bpm-control">
+                                <label for="song-bpm">BPM:</label>
+                                <input type="number" id="song-bpm" min="60" max="240" value="120">
+                            </div>
+                        </div>
+                        <div class="editor-actions">
+                            <button id="save-song-btn">Save</button>
+                            <button id="export-song-btn">Export</button>
+                            <button id="test-song-btn">Test</button>
+                        </div>
+                    </div>
+                    
+                    <div class="piano-roll-container">
+                        <div class="piano-keys">
+                            <!-- Piano keys for reference will be created here -->
+                        </div>
+                        <div class="note-grid">
+                            <!-- Note grid will be created here -->
+                        </div>
+                    </div>
+                    
+                    <div class="note-controls">
+                        <div class="note-duration">
+                            <label>Duration:</label>
+                            <button class="duration-btn" data-value="0.5">1/8</button>
+                            <button class="duration-btn" data-value="1">1/4</button>
+                            <button class="duration-btn active" data-value="2">1/2</button>
+                            <button class="duration-btn" data-value="4">1</button>
+                        </div>
+                        <div class="playback-controls">
+                            <button id="play-editor-btn">▶️ Play</button>
+                            <button id="stop-editor-btn">⏹️ Stop</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <div id="fullscreen-hint">

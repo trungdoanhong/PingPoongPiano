@@ -173,7 +173,7 @@ body {
     display: flex;
     justify-content: space-between;
     padding: 0 20px;
-    z-index: 110;
+    z-index: 200;
 }
 
 #score-panel {
@@ -192,6 +192,10 @@ body {
 #controls-container {
     display: flex;
     gap: 15px;
+}
+
+#controls-container.analyzer-mode {
+    justify-content: flex-end;
 }
 
 #speed-control, #margin-control {
@@ -276,7 +280,7 @@ body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    z-index: 100;
+    z-index: 95;
     color: white;
     backdrop-filter: blur(10px);
 }
@@ -496,44 +500,7 @@ button:active:after {
     }
 }
 
-#menu-bar {
-    position: absolute;
-    top: 60px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 10px;
-    z-index: 110;
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 50px;
-    padding: 5px;
-    backdrop-filter: blur(5px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-}
-
-.menu-item {
-    color: white;
-    padding: 10px 20px;
-    border-radius: 50px;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.menu-item:hover {
-    background: rgba(255, 255, 255, 0.1);
-    transform: scale(1.05);
-}
-
-.menu-item.active {
-    background: rgba(10, 189, 227, 0.3);
-    box-shadow: 0 0 10px rgba(10, 189, 227, 0.3);
-}
-
-.menu-item:active {
-    transform: scale(0.95);
-}
+/* Menu bar styles were moved to the menu button section above */
 
 #audio-analyzer {
     position: absolute;
@@ -541,94 +508,621 @@ button:active:after {
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
     display: none;
     flex-direction: column;
-    align-items: center;
-    z-index: 90;
+    padding-top: 60px;
+    z-index: 120;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    overflow: hidden;
 }
 
 #audio-controls {
-    position: absolute;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
     display: flex;
+    justify-content: center;
     gap: 20px;
-    z-index: 95;
+    padding: 20px;
+    z-index: 130;
+    position: relative;
 }
 
 #start-recording, #stop-recording {
+    padding: 15px 30px;
+    border-radius: 50px;
     background: rgba(0, 0, 0, 0.3);
     color: white;
-    padding: 10px 20px;
-    border-radius: 50px;
-    font-size: 14px;
     cursor: pointer;
+    font-weight: 600;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
     transition: all 0.2s ease;
-    backdrop-filter: blur(5px);
+    user-select: none;
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 #start-recording:hover, #stop-recording:hover {
-    background: rgba(0, 0, 0, 0.4);
-    transform: scale(1.05);
+    background: rgba(10, 189, 227, 0.4);
+    transform: translateY(-2px);
 }
 
 #start-recording:active, #stop-recording:active {
-    transform: scale(0.95);
+    transform: translateY(1px);
 }
 
 #visualizer-container {
-    position: relative;
+    flex: 1;
     width: 100%;
-    height: 60%;
     display: flex;
     justify-content: center;
     align-items: center;
+    padding: 20px;
+    position: relative;
 }
 
 #waveform {
-    width: 80%;
-    height: 300px;
+    width: 100%;
+    height: 100%;
     background: rgba(0, 0, 0, 0.2);
     border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(5px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 #note-display {
     position: absolute;
-    bottom: 20%;
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
-    width: 80%;
-    height: 150px;
-    background: rgba(0, 0, 0, 0.2);
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: white;
+    z-index: 125;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 20px 40px;
     border-radius: 10px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(5px);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 20px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
 }
 
 #detected-note {
-    font-size: 60px;
+    font-size: 56px;
     font-weight: 700;
+    text-shadow: 0 2px 10px rgba(10, 189, 227, 0.7);
     margin-bottom: 10px;
-    background: linear-gradient(to right, #0abde3, #48dbfb);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    text-shadow: 0 0 10px rgba(10, 189, 227, 0.5);
+    color: rgba(10, 189, 227, 1);
 }
 
 #detected-frequency {
-    font-size: 24px;
+    font-size: 18px;
+    opacity: 0.8;
+}
+
+#game-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    z-index: 100;
+}
+
+/* Menu button and dropdown styles */
+#menu-button {
+    position: relative;
+    padding: 8px 15px;
+    background: rgba(0, 0, 0, 0.3);
+    color: white;
+    border-radius: 50px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    user-select: none;
+    margin-right: 15px;
+    transition: all 0.2s ease;
+}
+
+#menu-button:hover {
+    background: rgba(0, 0, 0, 0.4);
+    transform: translateY(-2px);
+}
+
+#menu-button:active {
+    transform: translateY(1px);
+}
+
+#dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 5px;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(10px);
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    padding: 10px;
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    z-index: 300;
+    min-width: 150px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#menu-button.active #dropdown-menu {
+    display: flex;
+}
+
+.menu-item {
+    padding: 8px 15px;
+    border-radius: 5px;
+    background: rgba(0, 0, 0, 0.3);
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.menu-item:hover {
+    background: rgba(10, 189, 227, 0.3);
+    transform: translateY(-2px);
+}
+
+.menu-item.active {
+    background: rgba(10, 189, 227, 0.7);
+    box-shadow: 0 5px 15px rgba(10, 189, 227, 0.3);
+}
+
+.menu-item:active {
+    transform: translateY(1px);
+}
+
+/* Control panel styles */
+.control-panel {
+    position: absolute;
+    top: 10px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 200;
+}
+
+#score-panel {
+    padding: 10px 20px;
+    background: rgba(0, 0, 0, 0.3);
+    color: white;
+    border-radius: 50px;
+    font-size: 18px;
+    font-weight: 600;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#controls-container {
+    display: flex;
+    gap: 15px;
+}
+
+/* Song Manager Styles */
+#song-manager {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    flex-direction: column;
+    padding-top: 60px;
+    z-index: 120;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    overflow: hidden;
+}
+
+.song-manager-content {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+}
+
+.song-list-container {
+    width: 25%;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    padding: 15px;
+    margin-right: 20px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.song-list-container h2 {
+    margin-bottom: 15px;
+    font-size: 22px;
+    color: white;
+    text-align: center;
+}
+
+.song-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.song-controls button {
+    flex: 1;
+    padding: 8px 0;
+    font-size: 14px;
+}
+
+#song-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.song-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 5px;
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.2s ease;
+}
+
+.song-item:hover {
+    background: rgba(10, 189, 227, 0.1);
+    transform: translateY(-2px);
+}
+
+.song-name {
+    font-size: 16px;
+    font-weight: 500;
+    color: white;
+}
+
+.default-song .song-name {
+    color: #0abde3;
+}
+
+.song-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.song-actions button {
+    padding: 5px 10px;
+    font-size: 12px;
+    background: rgba(0, 0, 0, 0.3);
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.song-actions button:hover {
+    background: rgba(10, 189, 227, 0.4);
+}
+
+.song-editor {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    padding: 15px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.song-editor h2 {
+    margin-bottom: 15px;
+    font-size: 22px;
+    color: white;
+    text-align: center;
+}
+
+.editor-controls {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.song-info {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+#song-name {
+    padding: 8px 15px;
+    border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.2);
+    color: white;
+    font-size: 16px;
+    width: 250px;
+}
+
+.bpm-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: white;
+}
+
+#song-bpm {
+    width: 70px;
+    padding: 8px;
+    border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.2);
+    color: white;
+    font-size: 16px;
+    text-align: center;
+}
+
+.editor-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.editor-actions button {
+    padding: 8px 15px;
+    font-size: 14px;
+}
+
+.piano-roll-container {
+    flex: 1;
+    display: flex;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    margin-bottom: 15px;
+    overflow: hidden;
+    position: relative;
+}
+
+.piano-keys {
+    width: 50px;
+    background: rgba(0, 0, 0, 0.3);
+    overflow-y: auto;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.note-grid {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+    background: repeating-linear-gradient(
+        to right,
+        rgba(255, 255, 255, 0.03) 0px,
+        rgba(255, 255, 255, 0.03) 1px,
+        transparent 1px,
+        transparent 40px
+    );
+    cursor: default;
+    z-index: 1;
+}
+
+.grid-note {
+    position: absolute;
+    background: linear-gradient(to bottom, #0abde3 0%, #48dbfb 100%);
+    box-shadow: 0 0 5px rgba(10, 189, 227, 0.5);
+    border-radius: 3px;
+    height: 18px;
+    z-index: 5;
+    cursor: move;
+    transition: opacity 0.3s, transform 0.3s, box-shadow 0.2s;
+    will-change: transform, left, top;
+    user-select: none;
+}
+
+.grid-note:hover {
+    box-shadow: 0 0 8px rgba(10, 189, 227, 0.8);
+    z-index: 10;
+}
+
+.grid-note.dragging {
+    z-index: 100;
+    opacity: 0.85;
+    box-shadow: 0 5px 15px rgba(10, 189, 227, 0.7) !important;
+    transform: scale(1.05);
+    pointer-events: none;
+    transition: none;
+}
+
+.grid-note.deleting {
+    background: linear-gradient(to bottom, #ff6b6b 0%, #ee5253 100%);
+    box-shadow: 0 0 8px rgba(255, 107, 107, 0.8);
+    transform: scale(0.9);
+}
+
+.grid-note .resize-handle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 5px;
+    height: 100%;
+    cursor: ew-resize;
+    background-color: rgba(255, 255, 255, 0.3);
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+    z-index: 2;
+}
+
+.grid-note .resize-handle:hover {
+    background-color: rgba(255, 255, 255, 0.5);
+}
+
+.note-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.note-duration {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    color: white;
+}
+
+.duration-btn {
+    padding: 5px 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.duration-btn.active {
+    background: rgba(10, 189, 227, 0.5);
+    box-shadow: 0 0 10px rgba(10, 189, 227, 0.3);
+}
+
+.playback-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.playback-controls button {
+    padding: 8px 15px;
+    font-size: 14px;
+}
+
+.editor-key {
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
     color: rgba(255, 255, 255, 0.7);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    transition: all 0.1s ease;
+}
+
+.editor-key.white-key {
+    background: linear-gradient(to right, #323a45 0%, #272e38 100%);
+}
+
+.editor-key.black-key {
+    background: linear-gradient(to right, #272e38 0%, #1e252e 100%);
+}
+
+.editor-key:hover {
+    background: rgba(10, 189, 227, 0.3);
+}
+
+/* Hiện thị thông báo xóa note */
+.delete-tooltip {
+    position: fixed;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.delete-tooltip.visible {
+    opacity: 1;
+}
+
+@media (max-width: 768px) {
+    .piano-roll-container {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+        height: 300px;
+    }
+    
+    .note-grid {
+        flex: 1;
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .grid-note {
+        height: 18px;
+        min-width: 10px;
+    }
+    
+    .grid-note .resize-handle {
+        width: 10px;
+    }
+}
+
+/* Hướng dẫn cho thiết bị di động */
+.mobile-instruction {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.instruction-content {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 10px;
+    padding: 20px;
+    width: 80%;
+    max-width: 400px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.instruction-content h3 {
+    color: #0abde3;
+    font-size: 18px;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.instruction-content ul {
+    list-style: none;
+    margin-bottom: 20px;
+}
+
+.instruction-content li {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.instruction-content li:before {
+    content: "• ";
+    color: #0abde3;
+    font-weight: bold;
+}
+
+.instruction-content button {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    margin-top: 15px;
 } 
