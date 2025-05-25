@@ -16,6 +16,14 @@ body {
     color: #fff;
 }
 
+/* Allow scrolling when in song manager or analyzer mode */
+body.scrollable {
+    overflow: auto;
+    height: auto;
+    min-height: 100vh;
+    touch-action: pan-y;
+}
+
 #orientation-message {
     display: none;
     position: fixed;
@@ -513,7 +521,9 @@ button:active:after {
     padding-top: 60px;
     z-index: 120;
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    overflow: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
 }
 
 #audio-controls {
@@ -719,14 +729,19 @@ button:active:after {
     padding-top: 60px;
     z-index: 120;
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    overflow: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
 }
 
 .song-manager-content {
     display: flex;
     width: 100%;
-    height: 100%;
+    height: auto;
+    min-height: calc(100vh - 60px);
     padding: 20px;
+    flex-wrap: wrap;
+    touch-action: pan-y;
 }
 
 .song-list-container {
@@ -739,6 +754,7 @@ button:active:after {
     display: flex;
     flex-direction: column;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    min-height: 400px;
 }
 
 .song-list-container h2 {
@@ -763,9 +779,12 @@ button:active:after {
 #song-list {
     flex: 1;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     display: flex;
     flex-direction: column;
     gap: 10px;
+    max-height: 60vh;
+    touch-action: pan-y;
 }
 
 .song-item {
@@ -823,6 +842,7 @@ button:active:after {
     display: flex;
     flex-direction: column;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    min-height: 400px;
 }
 
 .song-editor h2 {
@@ -836,6 +856,8 @@ button:active:after {
     display: flex;
     justify-content: space-between;
     margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 15px;
 }
 
 .song-info {
@@ -875,11 +897,29 @@ button:active:after {
 .editor-actions {
     display: flex;
     gap: 10px;
+    align-items: center;
 }
 
-.editor-actions button {
-    padding: 8px 15px;
-    font-size: 14px;
+.save-status {
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    white-space: nowrap;
+}
+
+.save-status.server-mode {
+    background: rgba(10, 189, 227, 0.2);
+    color: #0abde3;
+    border-color: rgba(10, 189, 227, 0.3);
+}
+
+.save-status.local-mode {
+    background: rgba(255, 165, 0, 0.2);
+    color: #ffa500;
+    border-color: rgba(255, 165, 0, 0.3);
 }
 
 .piano-roll-container {
@@ -891,6 +931,7 @@ button:active:after {
     margin-bottom: 15px;
     overflow: hidden;
     position: relative;
+    min-height: 300px;
 }
 
 .piano-keys {
@@ -903,6 +944,7 @@ button:active:after {
 .note-grid {
     flex: 1;
     overflow: auto;
+    -webkit-overflow-scrolling: touch;
     position: relative;
     background: repeating-linear-gradient(
         to right,
@@ -913,6 +955,7 @@ button:active:after {
     );
     cursor: default;
     z-index: 1;
+    touch-action: pan-x pan-y;
 }
 
 .grid-note {
@@ -1046,26 +1089,103 @@ button:active:after {
 }
 
 @media (max-width: 768px) {
-    .piano-roll-container {
-        flex: 1;
-        display: flex;
-        overflow: hidden;
-        height: 300px;
+    .song-manager-content {
+        flex-direction: column;
+        padding: 10px;
     }
     
-    .note-grid {
-        flex: 1;
+    .song-list-container {
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 20px;
+        min-height: 250px;
+    }
+    
+    .song-editor {
+        width: 100%;
+        min-height: 350px;
+    }
+    
+    .editor-controls {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+    
+    .song-info {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+    }
+    
+    #song-name {
+        width: 100%;
+    }
+    
+    .save-mode-selection {
+        align-items: stretch;
+    }
+    
+    .save-mode-control {
+        align-items: stretch;
+    }
+    
+    .save-mode-options {
+        justify-content: center;
+    }
+    
+    #server-password {
+        width: 100%;
+        max-width: 250px;
+        margin: 0 auto;
+    }
+    
+    .editor-actions {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .save-status {
+        order: -1;
+        width: 100%;
+        text-align: center;
+        margin-bottom: 10px;
+    }
+    
+    .save-mode-selection {
+        margin: 10px 0;
+    }
+    
+    .piano-roll-container {
+        min-height: 250px;
         overflow: auto;
         -webkit-overflow-scrolling: touch;
     }
     
-    .grid-note {
-        height: 18px;
-        min-width: 10px;
+    .note-grid {
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
     }
     
-    .grid-note .resize-handle {
-        width: 10px;
+    /* Ensure mobile controls are accessible */
+    .control-panel {
+        position: fixed;
+        top: 10px;
+        left: 0;
+        right: 0;
+        z-index: 300;
+    }
+    
+    /* Audio analyzer mobile improvements */
+    #audio-analyzer {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    #visualizer-container {
+        min-height: 300px;
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
     }
 }
 
@@ -1125,4 +1245,84 @@ button:active:after {
     padding: 10px;
     font-size: 16px;
     margin-top: 15px;
+}
+
+.save-mode-selection {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+}
+
+.save-mode-control {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+}
+
+.save-mode-control label {
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.save-mode-options {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.save-mode-option {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    color: white;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.save-mode-option:hover {
+    color: #0abde3;
+}
+
+.save-mode-option input[type="radio"] {
+    margin: 0;
+    cursor: pointer;
+    accent-color: #0abde3;
+}
+
+.save-mode-option span {
+    user-select: none;
+}
+
+.server-password {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: center;
+}
+
+#server-password {
+    padding: 8px 15px;
+    border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.2);
+    color: white;
+    font-size: 14px;
+    width: 180px;
+    text-align: center;
+}
+
+#server-password:focus {
+    outline: none;
+    border-color: #0abde3;
+    box-shadow: 0 0 5px rgba(10, 189, 227, 0.3);
+}
+
+.password-hint {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    text-align: center;
 } 

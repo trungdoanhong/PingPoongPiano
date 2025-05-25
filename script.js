@@ -432,6 +432,9 @@ window.onload = function() {
             // Switch to game mode
             gameContent.style.display = 'block';
             
+            // Remove scrollable class from body for game mode
+            document.body.classList.remove('scrollable');
+            
             // Show score panel and controls
             scoreElement.parentElement.style.display = 'block';
             speedDownBtn.parentElement.style.display = 'flex';
@@ -457,6 +460,9 @@ window.onload = function() {
             // Switch to analyzer mode
             audioAnalyzer.style.display = 'flex';
             
+            // Add scrollable class to body for analyzer mode
+            document.body.classList.add('scrollable');
+            
             // Hide score panel and game controls (but keep menu button visible)
             scoreElement.parentElement.style.display = 'none';
             speedDownBtn.parentElement.style.display = 'none';
@@ -480,6 +486,9 @@ window.onload = function() {
         } else if (mode === 'song-manager') {
             // Switch to song manager mode
             songManager.style.display = 'flex';
+            
+            // Add scrollable class to body for song manager mode
+            document.body.classList.add('scrollable');
             
             // Hide score panel and game controls (but keep menu button visible)
             scoreElement.parentElement.style.display = 'none';
@@ -895,7 +904,11 @@ window.onload = function() {
         tile.className = 'tile';
         tile.style.bottom = '100%';
         
-        tile.style.height = `${Math.min(25 * duration, 40)}%`;
+        // Fix: Make tile height proportional to duration for consistency with Song Manager
+        // Base height of 15% for duration 1.0, proportional scaling
+        const baseHeight = 15; // Base height percentage for duration 1.0
+        const tileHeight = Math.max(5, baseHeight * duration); // Minimum 5%, proportional to duration
+        tile.style.height = `${tileHeight}%`;
         
         column.appendChild(tile);
     }
@@ -1088,6 +1101,8 @@ window.onload = function() {
     let selectedNoteElement = null;
     let serverAvailable = false;
     let isLoadingSongs = false; // Biến theo dõi trạng thái đang tải bài hát
+    let forcedSaveMode = null; // null = auto-detect, 'local' = force local, 'server' = force server
+    let serverPassword = "Au123456"; // Server password
     const API_URL = 'http://localhost:3000/api/songs';
     
     // Biến cho tính năng kéo-thả note
@@ -1122,77 +1137,230 @@ window.onload = function() {
     const pianoKeysContainer = document.querySelector('.piano-keys');
     const noteGrid = document.querySelector('.note-grid');
     
+    // Save mode controls
+    const saveModeRadios = document.getElementsByName('save-mode');
+    const serverPasswordContainer = document.getElementById('server-password-container');
+    const serverPasswordInput = document.getElementById('server-password');
+    const saveStatusIndicator = document.getElementById('save-status');
+    
     // Initialize the Song Manager
     function initSongManager() {
-        // If already initialized, just return
-        if (pianoKeysContainer.children.length > 0) return;
+        // Wait for DOM to be ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                initSongManagerUI();
+            });
+        } else {
+            initSongManagerUI();
+        }
         
-        // Check if server is available
-        checkServerAvailability();
-        
-        // Create piano keys in the editor
-        createEditorPianoKeys();
-        
-        // Create grid lines
-        createGridLines();
-        
-        // Load songs
-        loadSongs();
-        
-        // Setup event listeners
-        setupSongManagerEvents();
-        
-        // Thêm nút sửa lỗi notes
-        addFixButton();
-        
-        // Thêm nút làm mới danh sách bài hát
-        addRefreshButton();
+        function initSongManagerUI() {
+            console.log("Initializing song manager UI...");
+            
+            // Clear any existing event listeners
+            const songList = document.getElementById('song-list');
+            if (songList) {
+                songList.innerHTML = '';
+            }
+            
+            // Initialize UI elements
+            initializeUIElements();
+            
+            // Add the refresh button
+            addRefreshButton();
+            
+            // Add fix button for debug
+            addFixButton();
+            
+            // Initialize storage diagnostics
+            initStorageDiagnostics();
+            
+            // Load songs with retry mechanism
+            let retryCount = 0;
+            const maxRetries = 3;
+            
+            function loadWithRetry() {
+                loadSongsWrapper(true).then(() => {
+                    console.log("Songs loaded successfully");
+                }).catch(error => {
+                    console.error("Error loading songs:", error);
+                    retryCount++;
+                    if (retryCount < maxRetries) {
+                        console.log(`Retrying... (${retryCount}/${maxRetries})`);
+                        setTimeout(loadWithRetry, 1000 * retryCount);
+                    } else {
+                        console.error("Failed to load songs after", maxRetries, "attempts");
+                        showErrorMessage("Không thể tải bài hát. Vui lòng thử làm mới trang.");
+                    }
+                });
+            }
+            
+            loadWithRetry();
+        }
     }
     
-    // Thêm nút làm mới danh sách bài hát
+    // Add refresh button and cleanup button
     function addRefreshButton() {
-        // Kiểm tra xem nút đã tồn tại chưa
-        if (document.getElementById('refresh-songs-btn')) return;
+        const songListContainer = document.querySelector('.song-list-container');
         
+        if (!songListContainer) {
+            console.error("Không tìm thấy song-list-container");
+            return;
+        }
+        
+        // Xóa button cũ nếu có
+        const existingRefreshButton = songListContainer.querySelector('.refresh-button');
+        if (existingRefreshButton) {
+            existingRefreshButton.remove();
+        }
+        
+        const existingCleanupButton = songListContainer.querySelector('.cleanup-button');
+        if (existingCleanupButton) {
+            existingCleanupButton.remove();
+        }
+        
+        // Tạo container cho các nút
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.gap = '10px';
+        buttonContainer.style.padding = '10px';
+        buttonContainer.style.justifyContent = 'center';
+        
+        // Tạo nút làm mới
         const refreshButton = document.createElement('button');
-        refreshButton.id = 'refresh-songs-btn';
-        refreshButton.innerHTML = '<span style="font-size: 16px;">&#x21bb;</span> Làm mới';
-        refreshButton.style.position = 'absolute';
-        refreshButton.style.right = '10px';
-        refreshButton.style.top = '10px';
-        refreshButton.style.padding = '5px 10px';
-        refreshButton.style.fontSize = '12px';
-        refreshButton.style.background = 'rgba(10, 189, 227, 0.2)';
-        refreshButton.style.border = '1px solid rgba(255, 255, 255, 0.2)';
-        refreshButton.style.borderRadius = '4px';
+        refreshButton.className = 'refresh-button';
+        refreshButton.textContent = '🔄 Làm mới';
+        refreshButton.style.padding = '8px 15px';
+        refreshButton.style.background = 'rgba(10, 189, 227, 0.5)';
+        refreshButton.style.border = 'none';
+        refreshButton.style.borderRadius = '5px';
         refreshButton.style.color = 'white';
         refreshButton.style.cursor = 'pointer';
+        refreshButton.style.fontSize = '12px';
+        refreshButton.style.fontWeight = 'bold';
         
-        refreshButton.addEventListener('click', function() {
-            this.innerHTML = '<span style="font-size: 16px;">&#x21bb;</span> Đang tải...';
-            this.style.opacity = '0.7';
-            this.disabled = true;
+        // Tạo nút dọn dẹp
+        const cleanupButton = document.createElement('button');
+        cleanupButton.className = 'cleanup-button';
+        cleanupButton.textContent = '🧹 Dọn dẹp';
+        cleanupButton.style.padding = '8px 15px';
+        cleanupButton.style.background = 'rgba(255, 165, 0, 0.5)';
+        cleanupButton.style.border = 'none';
+        cleanupButton.style.borderRadius = '5px';
+        cleanupButton.style.color = 'white';
+        cleanupButton.style.cursor = 'pointer';
+        cleanupButton.style.fontSize = '12px';
+        cleanupButton.style.fontWeight = 'bold';
+        
+        // Sự kiện cho nút làm mới
+        refreshButton.addEventListener('click', () => {
+            refreshButton.textContent = '🔄 Đang tải...';
+            refreshButton.disabled = true;
             
-            // Làm mới danh sách bài hát
-            loadSongs(true).then(() => {
-                this.innerHTML = '<span style="font-size: 16px;">&#x21bb;</span> Làm mới';
-                this.style.opacity = '1';
-                this.disabled = false;
-            }).catch(() => {
-                this.innerHTML = '<span style="font-size: 16px;">&#x21bb;</span> Thất bại';
-                setTimeout(() => {
-                    this.innerHTML = '<span style="font-size: 16px;">&#x21bb;</span> Làm mới';
-                    this.style.opacity = '1';
-                    this.disabled = false;
-                }, 2000);
+            loadSongsWrapper(true).finally(() => {
+                refreshButton.textContent = '🔄 Làm mới';
+                refreshButton.disabled = false;
             });
         });
         
-        // Thêm vào vùng chứa danh sách bài hát
-        const songListContainer = document.querySelector('.song-list-container');
-        if (songListContainer) {
-            songListContainer.appendChild(refreshButton);
+        // Sự kiện cho nút dọn dẹp
+        cleanupButton.addEventListener('click', () => {
+            if (serverAvailable) {
+                cleanupButton.textContent = '🧹 Đang dọn...';
+                cleanupButton.disabled = true;
+                
+                // Tải lại dữ liệu và tự động dọn dẹp
+                loadSongsWrapper(true).finally(() => {
+                    cleanupButton.textContent = '🧹 Dọn dẹp';
+                    cleanupButton.disabled = false;
+                });
+            } else {
+                showNotification('Chỉ có thể dọn dẹp khi kết nối server', 'warning');
+            }
+        });
+        
+        // Hover effects
+        refreshButton.addEventListener('mouseenter', () => {
+            refreshButton.style.background = 'rgba(10, 189, 227, 0.7)';
+        });
+        refreshButton.addEventListener('mouseleave', () => {
+            refreshButton.style.background = 'rgba(10, 189, 227, 0.5)';
+        });
+        
+        cleanupButton.addEventListener('mouseenter', () => {
+            cleanupButton.style.background = 'rgba(255, 165, 0, 0.7)';
+        });
+        cleanupButton.addEventListener('mouseleave', () => {
+            cleanupButton.style.background = 'rgba(255, 165, 0, 0.5)';
+        });
+        
+        // Thêm các nút vào container
+        buttonContainer.appendChild(refreshButton);
+        buttonContainer.appendChild(cleanupButton);
+        
+        // Thêm vào đầu song list container
+        songListContainer.insertBefore(buttonContainer, songListContainer.firstChild);
+        
+        console.log("Đã thêm nút làm mới và dọn dẹp");
+    }
+    
+    // Hàm mới để kiểm tra dung lượng localStorage
+    function checkLocalStorageSize() {
+        if (!isLocalStorageAvailable()) return;
+        
+        try {
+            // Lấy tất cả các key trong localStorage
+            let totalSize = 0;
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+                totalSize += (key.length + value.length) * 2; // Mỗi ký tự UTF-16 chiếm 2 bytes
+            }
+            
+            // Chuyển đổi sang KB
+            const sizeInKB = (totalSize / 1024).toFixed(2);
+            
+            console.log(`LocalStorage đang sử dụng: ${sizeInKB} KB`);
+            
+            // Hiển thị cảnh báo nếu gần đạt giới hạn (hầu hết trình duyệt giới hạn khoảng 5-10MB)
+            if (totalSize > 4 * 1024 * 1024) { // Nếu trên 4MB
+                showNotification('Cảnh báo: Bộ nhớ cục bộ gần đạt giới hạn. Hãy xuất bài hát ra file hoặc xóa bớt.', 'error');
+            }
+            
+            return sizeInKB;
+        } catch (e) {
+            console.error("Lỗi khi kiểm tra dung lượng localStorage:", e);
+            return "N/A";
         }
+    }
+    
+    // Kiểm tra dung lượng localStorage khi khởi tạo
+    function initStorageDiagnostics() {
+        setTimeout(() => {
+            const sizeInKB = checkLocalStorageSize();
+            console.log(`Chẩn đoán bộ nhớ: LocalStorage đang sử dụng ${sizeInKB} KB`);
+            
+            // Kiểm tra tính khả dụng của localStorage
+            if (isLocalStorageAvailable()) {
+                try {
+                    // Thử ghi và đọc một giá trị test
+                    const testValue = "test_" + Date.now();
+                    localStorage.setItem("piano_tiles_test", testValue);
+                    const readValue = localStorage.getItem("piano_tiles_test");
+                    
+                    if (readValue === testValue) {
+                        console.log("LocalStorage hoạt động bình thường");
+                        localStorage.removeItem("piano_tiles_test");
+                    } else {
+                        console.error("LocalStorage không hoạt động đúng: Giá trị đọc khác giá trị ghi");
+                        showNotification("Có vấn đề với bộ nhớ cục bộ của trình duyệt", "error");
+                    }
+                } catch (e) {
+                    console.error("Lỗi khi test localStorage:", e);
+                    showNotification("Không thể sử dụng bộ nhớ cục bộ", "error");
+                }
+            }
+        }, 2000);
     }
     
     // Check if server is available
@@ -1200,46 +1368,57 @@ window.onload = function() {
         // Thêm hiển thị trạng thái kết nối
         updateConnectionStatus('Đang kiểm tra kết nối...');
         
-        return fetch(API_URL)
+        console.log("Checking server availability at:", API_URL);
+        
+        // Create a timeout promise
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => {
+                reject(new Error('Connection timeout after 5 seconds'));
+            }, 5000);
+        });
+        
+        // Create the fetch promise
+        const fetchPromise = fetch(API_URL, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        // Race between fetch and timeout
+        return Promise.race([fetchPromise, timeoutPromise])
             .then(response => {
-                serverAvailable = true;
-                updateConnectionStatus('Đã kết nối với server');
-                console.log("Server is available");
-                return true;
+                console.log("Server response status:", response.status);
+                if (response.ok) {
+                    serverAvailable = true;
+                    updateConnectionStatus('Đã kết nối với server');
+                    console.log("Server is available and responding correctly");
+                    return true;
+                } else {
+                    throw new Error(`Server returned status ${response.status}`);
+                }
             })
             .catch(error => {
                 serverAvailable = false;
                 updateConnectionStatus('Đang sử dụng lưu trữ cục bộ');
-                console.log("Server is not available, using localStorage");
+                console.error("Server is not available:", error.message);
+                console.log("Error details:", {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
                 return false;
             });
     }
     
-    // Hiển thị trạng thái kết nối
+    // Update connection status và thay thế function loadSongs cũ bằng mới
     function updateConnectionStatus(message) {
-        let statusElement = document.getElementById('connection-status');
-        
-        if (!statusElement) {
-            statusElement = document.createElement('div');
-            statusElement.id = 'connection-status';
-            statusElement.style.position = 'absolute';
-            statusElement.style.left = '10px';
-            statusElement.style.top = '10px';
-            statusElement.style.fontSize = '12px';
-            statusElement.style.color = 'rgba(255, 255, 255, 0.7)';
-            statusElement.style.padding = '5px';
-            statusElement.style.borderRadius = '3px';
-            statusElement.style.background = 'rgba(0, 0, 0, 0.2)';
-            
-            const songListContainer = document.querySelector('.song-list-container');
-            if (songListContainer) {
-                songListContainer.appendChild(statusElement);
-            }
+        const statusElement = document.getElementById('connection-status');
+        if (statusElement) {
+            statusElement.textContent = message;
         }
         
-        statusElement.textContent = message;
-        
-        // Đổi màu theo trạng thái
+        // Update color based on connection type
         if (message.includes('server')) {
             statusElement.style.color = '#4ecca3'; // Màu xanh lá
         } else if (message.includes('cục bộ')) {
@@ -1249,8 +1428,8 @@ window.onload = function() {
         }
     }
     
-    // Load songs from server or localStorage
-    function loadSongs(forceRefresh = false) {
+    // Wrapper function for backward compatibility 
+    function loadSongsWrapper(forceRefresh = false) {
         // Tránh tải lại nếu đang tải
         if (isLoadingSongs && !forceRefresh) return Promise.resolve();
         
@@ -1260,32 +1439,21 @@ window.onload = function() {
         updateSongLoadingStatus('Đang tải bài hát...');
         
         if (serverAvailable) {
-            // Load from server
-            return fetch(API_URL)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Không thể kết nối với server');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    songs = data;
+            // Use new loadSongs function
+            return loadSongs()
+                .then(() => {
+                    updateSongLoadingStatus('');
+                    isLoadingSongs = false;
+                    
                     // Add default song if no songs exist
                     if (songs.length === 0) {
                         return addHappyBirthdaySong().then(() => {
                             updateSongList();
-                            updateSongLoadingStatus('');
-                            isLoadingSongs = false;
                         });
-                    } else {
-                        updateSongList();
-                        updateSongLoadingStatus('');
-                        isLoadingSongs = false;
                     }
                 })
                 .catch(error => {
-                    console.error("Error loading songs from server:", error);
-                    // Fallback to localStorage if server fails
+                    console.error("Error in loadSongs:", error);
                     updateConnectionStatus('Đang sử dụng lưu trữ cục bộ');
                     serverAvailable = false;
                     return loadSongsFromLocalStorage();
@@ -1348,13 +1516,37 @@ window.onload = function() {
             }
             
             const savedSongs = localStorage.getItem('piano_tiles_songs');
+            console.log("Checking localStorage for songs...");
+            
             if (savedSongs) {
-                songs = JSON.parse(savedSongs);
-                console.log("Loaded songs from localStorage:", songs.length);
+                try {
+                    songs = JSON.parse(savedSongs);
+                    
+                    // Kiểm tra tính hợp lệ của dữ liệu
+                    if (!Array.isArray(songs)) {
+                        console.error("Loaded data is not an array:", songs);
+                        songs = [];
+                        showErrorMessage("Dữ liệu bài hát không hợp lệ. Đã khởi tạo danh sách trống.");
+                    } else {
+                        console.log("Loaded songs from localStorage:", songs.length, "songs");
+                        console.log("First song in list:", songs.length > 0 ? songs[0].name : "No songs");
+                        
+                        // Hiển thị thông báo tải thành công
+                        showNotification(`Đã tải ${songs.length} bài hát từ bộ nhớ cục bộ`, 'success');
+                    }
+                } catch (parseError) {
+                    console.error("Failed to parse saved songs:", parseError);
+                    songs = [];
+                    showErrorMessage("Không thể đọc dữ liệu bài hát đã lưu. Đã khởi tạo danh sách trống.");
+                }
+            } else {
+                console.log("No songs found in localStorage");
+                songs = [];
             }
             
             // Add default song if no songs exist
-            if (songs.length === 0) {
+            if (!songs.length) {
+                console.log("Adding default Happy Birthday song");
                 return addHappyBirthdaySong().then(() => {
                     updateSongList();
                     updateSongLoadingStatus('');
@@ -1373,6 +1565,9 @@ window.onload = function() {
                 updateSongList();
                 updateSongLoadingStatus('');
                 isLoadingSongs = false;
+                
+                // Thông báo lỗi
+                showErrorMessage("Lỗi khi tải bài hát. Đã khởi tạo lại danh sách.");
             });
         }
     }
@@ -1398,8 +1593,32 @@ window.onload = function() {
             
             // Save to localStorage
             try {
-                localStorage.setItem('piano_tiles_songs', JSON.stringify(songs));
-                console.log("Saved songs to localStorage:", songs.length);
+                // Kiểm tra dữ liệu trước khi lưu
+                if (!Array.isArray(songs)) {
+                    console.error("Songs is not an array:", songs);
+                    showErrorMessage("Lỗi định dạng dữ liệu bài hát. Không thể lưu.");
+                    return;
+                }
+                
+                // Lưu dữ liệu vào localStorage
+                const songsData = JSON.stringify(songs);
+                localStorage.setItem('piano_tiles_songs', songsData);
+                
+                // Kiểm tra xem dữ liệu đã được lưu thành công chưa
+                const savedData = localStorage.getItem('piano_tiles_songs');
+                if (savedData) {
+                    const parsedData = JSON.parse(savedData);
+                    console.log("Saved songs to localStorage:", parsedData.length);
+                    
+                    // Log chi tiết để debug
+                    console.log("Saved songs data:", songsData.substring(0, 200) + "...");
+                    
+                    // Hiển thị thông báo xác nhận
+                    showNotification(`Đã lưu ${parsedData.length} bài hát vào bộ nhớ cục bộ`, 'success');
+                } else {
+                    console.error("Failed to verify saved data in localStorage");
+                    showErrorMessage("Lưu bài hát không thành công. Vui lòng thử lại hoặc xuất bài hát ra file.");
+                }
             } catch (e) {
                 console.error("Error saving songs to localStorage:", e);
                 
@@ -1416,80 +1635,303 @@ window.onload = function() {
     
     // Save the current song
     function saveSong() {
-        if (!currentSong) return;
+        console.log("=== SAVE SONG CALLED ===");
+        console.log("currentSong:", currentSong);
+        console.log("forcedSaveMode:", forcedSaveMode);
+        console.log("serverAvailable:", serverAvailable);
+        console.log("serverPasswordInput value:", serverPasswordInput ? serverPasswordInput.value : "null");
+        console.log("serverPassword:", serverPassword);
         
-        // Update song info
-        currentSong.name = songNameInput.value || 'Untitled Song';
-        currentSong.bpm = parseInt(songBpmInput.value) || 120;
+        if (!currentSong) {
+            console.log("ERROR: No current song to save");
+            showNotification('Không có bài hát để lưu', 'error');
+            return;
+        }
         
-        // Collect notes from the grid
-        const noteElements = noteGrid.querySelectorAll('.grid-note');
-        currentSong.notes = Array.from(noteElements).map(el => ({
-            note: el.getAttribute('data-note'),
-            position: parseFloat(el.getAttribute('data-position')),
-            duration: parseFloat(el.getAttribute('data-duration'))
-        }));
+        // Check save mode and password validation for server mode
+        const saveMode = getCurrentSaveMode();
+        console.log("Current save mode:", saveMode);
         
-        // Sort notes by position
-        currentSong.notes.sort((a, b) => a.position - b.position);
-        
-        if (serverAvailable) {
-            // Save to server
-            const method = currentSong.id.startsWith('temp_') ? 'POST' : 'PUT';
-            const url = method === 'POST' ? API_URL : `${API_URL}/${currentSong.id}`;
+        if (forcedSaveMode === 'server') {
+            console.log("Checking server mode requirements...");
+            console.log("Password check result:", checkPasswordValidity());
+            if (!checkPasswordValidity()) {
+                console.log("Password validation failed");
+                showNotification('Mật khẩu server không đúng!', 'error');
+                return;
+            }
             
-            fetch(url, {
-                method: method,
+            // Re-check server availability before saving
+            console.log("Re-checking server availability before saving...");
+            showNotification('Đang kiểm tra kết nối server...', 'info');
+            
+            checkServerAvailability().then(isAvailable => {
+                console.log("Server availability check result:", isAvailable);
+                if (!isAvailable) {
+                    console.log("Server not available after re-check, switching to local");
+                    showNotification('Server không khả dụng. Chuyển sang lưu Local Storage.', 'warning');
+                    // Force switch to local mode
+                    document.querySelector('input[name="save-mode"][value="local"]').checked = true;
+                    forcedSaveMode = 'local';
+                    serverPasswordContainer.style.display = 'none';
+                    updateSaveButtonState();
+                    // Continue with local save
+                    proceedWithSave();
+                } else {
+                    console.log("Server is available, proceeding with server save");
+                    proceedWithSave();
+                }
+            }).catch(error => {
+                console.error("Error checking server availability:", error);
+                showNotification('Lỗi kết nối server. Chuyển sang lưu Local Storage.', 'error');
+                // Force switch to local mode
+                document.querySelector('input[name="save-mode"][value="local"]').checked = true;
+                forcedSaveMode = 'local';
+                serverPasswordContainer.style.display = 'none';
+                updateSaveButtonState();
+                proceedWithSave();
+            });
+            
+            return; // Exit early, proceedWithSave() will handle the actual saving
+        }
+        
+        // The main save logic is now in proceedWithSave()
+        proceedWithSave();
+        
+        // Main save function that handles the actual saving logic
+        function proceedWithSave() {
+            // Update song info
+            console.log("Updating song info...");
+            currentSong.name = songNameInput.value || 'Untitled Song';
+            currentSong.bpm = parseInt(songBpmInput.value) || 120;
+            
+            // Collect notes from the grid
+            const noteElements = noteGrid.querySelectorAll('.grid-note');
+            console.log("Found note elements:", noteElements.length);
+            currentSong.notes = Array.from(noteElements).map(el => ({
+                note: el.getAttribute('data-note'),
+                position: parseFloat(el.getAttribute('data-position')),
+                duration: parseFloat(el.getAttribute('data-duration'))
+            }));
+            
+            // Sort notes by position
+            currentSong.notes.sort((a, b) => a.position - b.position);
+            
+            // Get current save mode (re-check after potential server availability update)
+            const saveMode = getCurrentSaveMode();
+            
+            // Log để debug
+            console.log("=== PROCEED WITH SAVE DEBUG ===");
+            console.log("- Song name:", currentSong.name);
+            console.log("- Song BPM:", currentSong.bpm);
+            console.log("- Song notes count:", currentSong.notes.length);
+            console.log("- Save mode from getCurrentSaveMode():", saveMode);
+            console.log("- Forced save mode:", forcedSaveMode);
+            console.log("- Server available:", serverAvailable);
+            console.log("- Password check result:", checkPasswordValidity());
+            console.log("- Condition check (saveMode === 'server' && forcedSaveMode === 'server'):", 
+                       (saveMode === 'server' && forcedSaveMode === 'server'));
+            
+            if (saveMode === 'server' && forcedSaveMode === 'server') {
+                console.log("=== SAVING TO SERVER ===");
+                // Server mode - kiểm tra xem bài hát có ID tạm thời không
+                const isTemporaryId = currentSong.id.startsWith('temp_');
+                console.log("Is temporary ID:", isTemporaryId, "ID:", currentSong.id);
+                
+                if (isTemporaryId) {
+                    console.log("Creating new song on server...");
+                    // Xử lý bài hát mới với ID tạm thời
+                    saveNewSongToServer();
+                } else {
+                    console.log("Updating existing song on server...");
+                    // Cập nhật bài hát đã tồn tại
+                    updateExistingSongOnServer();
+                }
+            } else {
+                console.log("=== SAVING TO LOCAL STORAGE ===");
+                // Local mode
+                saveToLocalStorage();
+            }
+        }
+        
+        // Hàm lưu bài hát mới lên server
+        function saveNewSongToServer() {
+            console.log("=== SAVE NEW SONG TO SERVER ===");
+            console.log("- Current song data:", currentSong);
+            console.log("- Server password input value:", serverPasswordInput.value);
+            
+            // Tạo bản sao dữ liệu và xóa ID tạm thời để server tạo ID mới
+            const songDataForServer = {
+                name: currentSong.name,
+                bpm: currentSong.bpm,
+                notes: currentSong.notes,
+                password: serverPasswordInput.value // Include password for verification
+                // Không gửi ID để server tự tạo ID mới
+            };
+            
+            console.log("- Data to send to server:", songDataForServer);
+            
+            // Log request để debug
+            logApiRequest('POST', API_URL, songDataForServer);
+            
+            // Hiển thị thông báo đang lưu
+            showNotification('Đang tạo bài hát mới trên server...', 'info');
+            
+            fetch(API_URL, {
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(currentSong),
+                body: JSON.stringify(songDataForServer),
             })
-            .then(response => response.json())
-            .then(data => {
-                // Update the song ID if it was a new song
-                if (method === 'POST') {
-                    // Find and replace the temporary song with the saved one
-                    const index = songs.findIndex(s => s.id === currentSong.id);
-                    if (index !== -1) {
-                        songs[index] = data;
-                        currentSong = data;
-                    }
+            .then(response => {
+                console.log("- Server response status:", response.status);
+                console.log("- Server response ok:", response.ok);
+                
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        console.log("- Server error response:", text);
+                        throw new Error(`Server returned ${response.status}: ${response.statusText} - ${text}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(serverSong => {
+                console.log("- Server response for new song:", serverSong);
+                
+                // Kiểm tra response hợp lệ
+                if (!serverSong || !serverSong.id) {
+                    throw new Error("Invalid response from server: missing ID");
                 }
                 
-                // Update the song list
-                updateSongList();
+                // Xóa bài hát tạm thời khỏi danh sách local
+                const tempIndex = songs.findIndex(s => s.id === currentSong.id);
+                if (tempIndex !== -1) {
+                    songs.splice(tempIndex, 1);
+                    console.log("Removed temporary song from local list");
+                }
                 
-                // Hiển thị thông báo thành công (không dùng alert)
-                showNotification(`Song "${currentSong.name}" saved successfully!`, 'success');
+                // Thêm bài hát mới với ID chính thức
+                songs.push(serverSong);
+                currentSong = serverSong;
+                
+                console.log("Added new song with server ID:", serverSong.id);
+                
+                // Cập nhật UI
+                updateSongList();
+                showNotification(`Đã tạo bài hát "${currentSong.name}" thành công!`, 'success');
             })
             .catch(error => {
-                console.error('Error saving song to server:', error);
-                showNotification('Failed to save song to server. Using localStorage as fallback.', 'error');
-                
+                handleApiError(error, 'tạo bài hát mới trên server');
                 // Fallback to localStorage
+                showNotification('Lỗi lưu server, chuyển sang Local Storage', 'warning');
+                saveToLocalStorage();
+            });
+        }
+        
+        // Hàm cập nhật bài hát đã tồn tại trên server
+        function updateExistingSongOnServer() {
+            console.log("=== UPDATE EXISTING SONG ON SERVER ===");
+            console.log("- Current song ID:", currentSong.id);
+            console.log("- Current song data:", currentSong);
+            console.log("- Server password input value:", serverPasswordInput.value);
+            
+            // Tạo bản sao dữ liệu để gửi
+            const songDataForServer = JSON.parse(JSON.stringify(currentSong));
+            songDataForServer.password = serverPasswordInput.value; // Include password for verification
+            
+            console.log("- Data to send to server:", songDataForServer);
+            
+            // Log request để debug
+            logApiRequest('PUT', `${API_URL}/${currentSong.id}`, songDataForServer);
+            
+            // Hiển thị thông báo đang lưu
+            showNotification('Đang cập nhật bài hát trên server...', 'info');
+            
+            fetch(`${API_URL}/${currentSong.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(songDataForServer),
+            })
+            .then(response => {
+                console.log("- Server response status:", response.status);
+                console.log("- Server response ok:", response.ok);
+                
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        console.log("- Server error response:", text);
+                        throw new Error(`Server returned ${response.status}: ${response.statusText} - ${text}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(updatedSong => {
+                console.log("- Server response for updated song:", updatedSong);
+                
+                // Cập nhật bài hát trong danh sách local
                 const index = songs.findIndex(s => s.id === currentSong.id);
                 if (index !== -1) {
-                    songs[index] = currentSong;
+                    songs[index] = updatedSong;
+                    currentSong = updatedSong;
+                    console.log("Updated existing song in local list");
                 } else {
-                    songs.push(currentSong);
+                    console.warn("Song not found in local list, adding as new");
+                    songs.push(updatedSong);
+                    currentSong = updatedSong;
                 }
+                
+                // Cập nhật UI
+                updateSongList();
+                showNotification(`Đã cập nhật bài hát "${currentSong.name}" thành công!`, 'success');
+            })
+            .catch(error => {
+                handleApiError(error, 'cập nhật bài hát');
+                // Fallback to localStorage
+                saveToLocalStorage();
+            });
+        }
+        
+        // Hàm lưu vào localStorage (tránh lặp code)
+        function saveToLocalStorage() {
+            console.log("=== SAVE TO LOCAL STORAGE ===");
+            console.log("- Current song before save:", currentSong);
+            
+            try {
+                // Nếu ID tạm thời, tạo ID chính thức cho localStorage
+                if (currentSong.id.startsWith('temp_')) {
+                    const newId = 'song_' + Date.now();
+                    console.log(`- Converting temp ID ${currentSong.id} to permanent ID ${newId}`);
+                    
+                    // Xóa bài hát tạm thời
+                    songs = songs.filter(s => s.id !== currentSong.id);
+                    console.log("- Removed temporary song from songs array");
+                    
+                    // Cập nhật ID
+                    currentSong.id = newId;
+                    console.log("- Updated current song ID to:", newId);
+                }
+                
+                const index = songs.findIndex(s => s.id === currentSong.id);
+                console.log("- Saving to localStorage, song index:", index);
+                
+                if (index !== -1) {
+                    songs[index] = { ...currentSong };
+                    console.log("Updated existing song in localStorage");
+                } else {
+                    console.log("Adding new song to localStorage");
+                    songs.push({ ...currentSong });
+                }
+                
                 saveSongs();
                 updateSongList();
-            });
-        } else {
-            // Save to localStorage
-            const index = songs.findIndex(s => s.id === currentSong.id);
-            if (index !== -1) {
-                songs[index] = currentSong;
-            } else {
-                songs.push(currentSong);
+                
+                showNotification(`Đã lưu bài hát "${currentSong.name}" vào Local Storage thành công!`, 'success');
+            } catch (error) {
+                console.error("Error saving to localStorage:", error);
+                showErrorMessage("Không thể lưu bài hát. Vui lòng thử lại.");
             }
-            
-            saveSongs();
-            updateSongList();
-            
-            showNotification(`Song "${currentSong.name}" saved successfully!`, 'success');
         }
     }
     
@@ -2132,78 +2574,186 @@ window.onload = function() {
     
     // Update the song list in the UI
     function updateSongList() {
-        // Clear the list except for the default song
+        // Lấy tham chiếu đến danh sách bài hát
         const songList = document.getElementById('song-list');
-        if (!songList) return;
-        
-        songList.innerHTML = '';
-        
-        if (songs.length === 0) {
-            const emptyMessage = document.createElement('div');
-            emptyMessage.className = 'empty-songs-message';
-            emptyMessage.textContent = 'Chưa có bài hát nào';
-            emptyMessage.style.textAlign = 'center';
-            emptyMessage.style.padding = '20px';
-            emptyMessage.style.color = 'rgba(255, 255, 255, 0.5)';
-            songList.appendChild(emptyMessage);
+        if (!songList) {
+            console.error("Không tìm thấy phần tử song-list!");
             return;
         }
         
-        // Add each song to the list
-        songs.forEach(song => {
-            const songItem = document.createElement('div');
-            songItem.className = 'song-item';
-            if (song.id === 'default-happy-birthday') {
-                songItem.classList.add('default-song');
-            }
-            
-            // Đánh dấu bài hát đang được chỉnh sửa
-            if (currentSong && song.id === currentSong.id) {
-                songItem.classList.add('active-song');
-            }
-            
-            songItem.innerHTML = `
-                <div class="song-name">${song.name}</div>
-                <div class="song-actions">
-                    <button class="edit-song-btn">Edit</button>
-                    <button class="play-song-btn">Play</button>
-                    ${song.id !== 'default-happy-birthday' ? '<button class="delete-song-btn">Delete</button>' : ''}
-                </div>
-            `;
-            
-            // Add data attribute to identify the song
-            songItem.setAttribute('data-song-id', song.id);
-            
-            // Add the song item to the list
-            songList.appendChild(songItem);
-        });
+        // Ghi log bắt đầu cập nhật
+        console.log(`[updateSongList] Bắt đầu cập nhật danh sách với ${songs ? songs.length : 0} bài hát`);
         
-        // Thêm style cho bài hát đang chọn
-        const styleEl = document.createElement('style');
-        if (!document.getElementById('song-list-styles')) {
-            styleEl.id = 'song-list-styles';
-            styleEl.textContent = `
-                .song-item.active-song {
-                    background: rgba(54, 159, 255, 0.3) !important;
-                    border-left: 3px solid #36c2ff !important;
-                    box-shadow: 0 0 5px rgba(54, 159, 255, 0.5) !important;
+        try {
+            // Xóa hoàn toàn nội dung
+            while (songList.firstChild) {
+                songList.removeChild(songList.firstChild);
+            }
+            
+            // Kiểm tra tính hợp lệ của mảng songs
+            if (!Array.isArray(songs)) {
+                console.error("[updateSongList] songs không phải là mảng:", songs);
+                const errorMessage = document.createElement('div');
+                errorMessage.className = 'error-songs-message';
+                errorMessage.textContent = 'Lỗi dữ liệu bài hát!';
+                errorMessage.style.textAlign = 'center';
+                errorMessage.style.padding = '20px';
+                errorMessage.style.color = 'rgba(255, 71, 87, 0.9)';
+                songList.appendChild(errorMessage);
+                return;
+            }
+            
+            // Sắp xếp bài hát theo thời gian tạo (nếu có)
+            try {
+                songs.sort((a, b) => {
+                    // Luôn giữ bài hát mặc định ở đầu
+                    if (a.id === 'default-happy-birthday') return -1;
+                    if (b.id === 'default-happy-birthday') return 1;
+                    
+                    // Nếu có timestamp trong ID, sử dụng để sắp xếp
+                    if (a.id && b.id) {
+                        const aTime = a.id.split('_')[1];
+                        const bTime = b.id.split('_')[1];
+                        if (aTime && bTime) {
+                            return parseInt(bTime) - parseInt(aTime); // Mới nhất lên đầu
+                        }
+                    }
+                    return 0;
+                });
+            } catch (sortError) {
+                console.error("[updateSongList] Lỗi khi sắp xếp bài hát:", sortError);
+            }
+            
+            // Hiển thị thông báo nếu không có bài hát
+            if (songs.length === 0) {
+                const emptyMessage = document.createElement('div');
+                emptyMessage.className = 'empty-songs-message';
+                emptyMessage.textContent = 'Chưa có bài hát nào';
+                emptyMessage.style.textAlign = 'center';
+                emptyMessage.style.padding = '20px';
+                emptyMessage.style.color = 'rgba(255, 255, 255, 0.5)';
+                songList.appendChild(emptyMessage);
+                console.log("[updateSongList] Không có bài hát để hiển thị");
+                return;
+            }
+            
+            // Tạo fragment để cải thiện hiệu suất render
+            const fragment = document.createDocumentFragment();
+            
+            // Thêm từng bài hát vào danh sách
+            let validSongCount = 0;
+            
+            // Log chi tiết các bài hát
+            console.log("[updateSongList] Danh sách bài hát:", songs.map(s => s ? s.id : 'null').join(', '));
+            
+            songs.forEach((song, index) => {
+                try {
+                    // Kiểm tra bài hát hợp lệ
+                    if (!song || !song.id || !song.name) {
+                        console.error(`[updateSongList] Bài hát không hợp lệ tại vị trí ${index}:`, song);
+                        return; // Bỏ qua bài hát không hợp lệ
+                    }
+                    
+                    // Tạo phần tử bài hát
+                    const songItem = document.createElement('div');
+                    songItem.className = 'song-item';
+                    if (song.id === 'default-happy-birthday') {
+                        songItem.classList.add('default-song');
+                    }
+                    
+                    // Đánh dấu bài hát đang được chỉnh sửa
+                    if (currentSong && song.id === currentSong.id) {
+                        songItem.classList.add('active-song');
+                    }
+                    
+                    // Tạo nội dung HTML cho bài hát
+                    songItem.innerHTML = `
+                        <div class="song-name">${song.name}</div>
+                        <div class="song-info">${song.notes ? song.notes.length : 0} notes</div>
+                        <div class="song-actions">
+                            <button class="edit-song-btn">Edit</button>
+                            <button class="play-song-btn">Play</button>
+                            ${song.id !== 'default-happy-birthday' ? '<button class="delete-song-btn">Delete</button>' : ''}
+                        </div>
+                    `;
+                    
+                    // Thêm thuộc tính data để xác định bài hát
+                    songItem.setAttribute('data-song-id', song.id);
+                    
+                    // Thêm vào fragment
+                    fragment.appendChild(songItem);
+                    validSongCount++;
+                } catch (error) {
+                    console.error(`[updateSongList] Lỗi khi tạo phần tử cho bài hát ${index}:`, error);
                 }
-            `;
-            document.head.appendChild(styleEl);
-        }
-        
-        // Cuộn đến bài hát đang được chọn
-        if (currentSong) {
-            const activeSong = songList.querySelector('.active-song');
-            if (activeSong) {
-                setTimeout(() => {
-                    activeSong.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }, 100);
+            });
+            
+            // Thêm fragment vào danh sách
+            songList.appendChild(fragment);
+            console.log(`[updateSongList] Đã render ${validSongCount}/${songs.length} bài hát`);
+            
+            // Thêm style cho bài hát đang chọn nếu chưa có
+            if (!document.getElementById('song-list-styles')) {
+                const styleEl = document.createElement('style');
+                styleEl.id = 'song-list-styles';
+                styleEl.textContent = `
+                    .song-item {
+                        position: relative;
+                        transition: all 0.3s ease;
+                    }
+                    .song-item .song-info {
+                        font-size: 0.8em;
+                        opacity: 0.7;
+                        margin-top: 2px;
+                    }
+                    .song-item.active-song {
+                        background: rgba(54, 159, 255, 0.3) !important;
+                        border-left: 3px solid #36c2ff !important;
+                        box-shadow: 0 0 5px rgba(54, 159, 255, 0.5) !important;
+                    }
+                `;
+                document.head.appendChild(styleEl);
             }
+            
+            // Cuộn đến bài hát đang được chọn
+            if (currentSong) {
+                const activeSong = songList.querySelector('.active-song');
+                if (activeSong) {
+                    setTimeout(() => {
+                        activeSong.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 100);
+                }
+            }
+            
+            // Thêm các sự kiện cho các nút
+            addSongItemEventListeners();
+            
+            console.log("[updateSongList] Cập nhật danh sách bài hát hoàn tất");
+        } catch (error) {
+            console.error("[updateSongList] Lỗi nghiêm trọng khi cập nhật danh sách bài hát:", error);
+            
+            // Hiển thị thông báo lỗi
+            showErrorMessage("Lỗi hiển thị danh sách bài hát. Vui lòng nhấn nút Làm mới.");
+            
+            // Tạo nút làm mới ngay trong danh sách
+            const refreshButton = document.createElement('button');
+            refreshButton.textContent = 'Làm mới danh sách';
+            refreshButton.style.margin = '20px auto';
+            refreshButton.style.display = 'block';
+            refreshButton.style.padding = '10px 20px';
+            refreshButton.style.background = 'rgba(10, 189, 227, 0.5)';
+            refreshButton.style.border = 'none';
+            refreshButton.style.borderRadius = '5px';
+            refreshButton.style.color = 'white';
+            refreshButton.style.cursor = 'pointer';
+            refreshButton.addEventListener('click', () => loadSongsWrapper(true));
+            
+            // Xóa nội dung hiện tại và thêm nút
+            while (songList.firstChild) {
+                songList.removeChild(songList.firstChild);
+            }
+            songList.appendChild(refreshButton);
         }
-        
-        // Add event listeners to the new buttons
-        addSongItemEventListeners();
     }
     
     // Add event listeners to song items
@@ -2227,8 +2777,73 @@ window.onload = function() {
         // Delete song buttons
         document.querySelectorAll('.delete-song-btn').forEach(btn => {
             btn.addEventListener('click', function() {
-                const songId = this.closest('.song-item').getAttribute('data-song-id');
-                deleteSong(songId);
+                const songItem = this.closest('.song-item');
+                const songId = songItem.getAttribute('data-song-id');
+                const songName = songItem.querySelector('.song-name').textContent;
+                
+                // Hiển thị xác nhận trước khi xóa
+                const confirmDelete = document.createElement('div');
+                confirmDelete.className = 'confirm-delete';
+                confirmDelete.innerHTML = `
+                    <div class="confirm-message">Xóa bài hát "${songName}"?</div>
+                    <div class="confirm-buttons">
+                        <button class="confirm-yes">Xóa</button>
+                        <button class="confirm-no">Hủy</button>
+                    </div>
+                `;
+                
+                // Thêm style cho xác nhận
+                confirmDelete.style.position = 'absolute';
+                confirmDelete.style.top = '0';
+                confirmDelete.style.left = '0';
+                confirmDelete.style.width = '100%';
+                confirmDelete.style.height = '100%';
+                confirmDelete.style.display = 'flex';
+                confirmDelete.style.flexDirection = 'column';
+                confirmDelete.style.justifyContent = 'center';
+                confirmDelete.style.alignItems = 'center';
+                confirmDelete.style.background = 'rgba(255, 71, 87, 0.9)';
+                confirmDelete.style.color = 'white';
+                confirmDelete.style.zIndex = '10';
+                confirmDelete.style.borderRadius = 'inherit';
+                
+                const yesBtn = confirmDelete.querySelector('.confirm-yes');
+                yesBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+                yesBtn.style.border = 'none';
+                yesBtn.style.color = 'white';
+                yesBtn.style.padding = '5px 15px';
+                yesBtn.style.margin = '0 5px';
+                yesBtn.style.borderRadius = '3px';
+                yesBtn.style.cursor = 'pointer';
+                
+                const noBtn = confirmDelete.querySelector('.confirm-no');
+                noBtn.style.background = 'rgba(255, 255, 255, 0.5)';
+                noBtn.style.border = 'none';
+                noBtn.style.color = 'black';
+                noBtn.style.padding = '5px 15px';
+                noBtn.style.margin = '0 5px';
+                noBtn.style.borderRadius = '3px';
+                noBtn.style.cursor = 'pointer';
+                
+                // Thêm sự kiện cho các nút
+                yesBtn.addEventListener('click', function() {
+                    // Hiệu ứng mờ dần trước khi xóa
+                    songItem.style.opacity = '0.5';
+                    songItem.style.transition = 'opacity 0.3s';
+                    
+                    // Thực hiện xóa sau hiệu ứng
+                    setTimeout(() => {
+                        deleteSong(songId);
+                    }, 300);
+                });
+                
+                noBtn.addEventListener('click', function() {
+                    songItem.removeChild(confirmDelete);
+                });
+                
+                // Thêm vào song item
+                songItem.style.position = 'relative';
+                songItem.appendChild(confirmDelete);
             });
         });
     }
@@ -2299,6 +2914,16 @@ window.onload = function() {
     
     // Setup Song Manager Event Listeners
     function setupSongManagerEvents() {
+        console.log("=== SETTING UP SONG MANAGER EVENTS ===");
+        console.log("saveSongBtn element:", saveSongBtn);
+        console.log("newSongBtn element:", newSongBtn);
+        console.log("importSongBtn element:", importSongBtn);
+        
+        if (!saveSongBtn) {
+            console.error("ERROR: saveSongBtn element not found!");
+            return;
+        }
+        
         // New Song button
         newSongBtn.addEventListener('click', createNewSong);
         
@@ -2306,7 +2931,11 @@ window.onload = function() {
         importSongBtn.addEventListener('click', importSong);
         
         // Save Song button
-        saveSongBtn.addEventListener('click', saveSong);
+        console.log("Adding click listener to save button...");
+        saveSongBtn.addEventListener('click', function() {
+            console.log("Save button clicked!");
+            saveSong();
+        });
         
         // Export Song button
         exportSongBtn.addEventListener('click', exportSong);
@@ -2394,6 +3023,274 @@ window.onload = function() {
                 }, 100);
             }
         });
+        
+        // Setup save mode events
+        setupSaveModeEvents();
+    }
+    
+    // Setup Save Mode Event Listeners
+    function setupSaveModeEvents() {
+        // Save mode radio button change
+        saveModeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                handleSaveModeChange(this.value);
+            });
+        });
+        
+        // Server password input validation
+        if (serverPasswordInput) {
+            serverPasswordInput.addEventListener('input', function() {
+                validateServerPassword(); // Update styling
+                updateSaveButtonState(); // Update button state
+            });
+        }
+        
+        // Add server check button with delay to ensure DOM is ready
+        setTimeout(() => {
+            addServerCheckButton();
+        }, 100);
+    }
+    
+    // Add server check button to the password container
+    function addServerCheckButton() {
+        console.log("Adding server check button, serverPasswordContainer:", serverPasswordContainer);
+        if (!serverPasswordContainer) {
+            console.error("serverPasswordContainer not found!");
+            return;
+        }
+        
+        // Check if button already exists
+        if (serverPasswordContainer.querySelector('.server-check-btn')) {
+            console.log("Server check button already exists");
+            return;
+        }
+        
+        const checkButton = document.createElement('button');
+        checkButton.className = 'server-check-btn';
+        checkButton.textContent = 'Kiểm tra';
+        checkButton.type = 'button';
+        checkButton.style.marginLeft = '10px';
+        checkButton.style.padding = '5px 10px';
+        checkButton.style.fontSize = '12px';
+        checkButton.style.borderRadius = '3px';
+        checkButton.style.border = 'none';
+        checkButton.style.cursor = 'pointer';
+        checkButton.title = 'Kiểm tra kết nối server';
+        
+        checkButton.addEventListener('click', function() {
+            const button = this;
+            button.textContent = 'Đang kiểm tra...';
+            button.disabled = true;
+            
+            console.log("Server check button clicked");
+            showNotification('Đang kiểm tra kết nối server...', 'info');
+            
+            // Simple server check with manual timeout handling
+            const checkPromise = fetch(API_URL, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            // Manual timeout
+            let timeoutId = setTimeout(() => {
+                console.log("Server check timed out");
+                serverAvailable = false;
+                showNotification('Timeout - Server không phản hồi trong 5 giây', 'error');
+                updateServerCheckButton();
+                updateSaveButtonState();
+            }, 5000);
+            
+            checkPromise
+                .then(response => {
+                    clearTimeout(timeoutId);
+                    console.log("Server responded with status:", response.status);
+                    
+                    if (response.ok) {
+                        serverAvailable = true;
+                        showNotification('Server khả dụng!', 'success');
+                        console.log("Server is available");
+                    } else {
+                        serverAvailable = false;
+                        showNotification(`Server trả về lỗi ${response.status}`, 'error');
+                        console.log("Server returned error:", response.status);
+                    }
+                })
+                .catch(error => {
+                    clearTimeout(timeoutId);
+                    console.error('Error checking server:', error);
+                    serverAvailable = false;
+                    
+                    let errorMessage = 'Không thể kết nối đến server';
+                    if (error.message.includes('fetch')) {
+                        errorMessage = 'Lỗi kết nối mạng hoặc server không chạy';
+                    }
+                    
+                    showNotification(errorMessage + ' tại ' + API_URL, 'error');
+                })
+                .finally(() => {
+                    console.log("Server check completed, updating UI");
+                    updateServerCheckButton();
+                    updateSaveButtonState();
+                    updateConnectionStatus(serverAvailable ? 'Đã kết nối với server' : 'Đang sử dụng lưu trữ cục bộ');
+                });
+        });
+        
+        serverPasswordContainer.appendChild(checkButton);
+        console.log("Server check button added successfully");
+        updateServerCheckButton();
+    }
+    
+    // Update server check button appearance
+    function updateServerCheckButton() {
+        const checkButton = serverPasswordContainer?.querySelector('.server-check-btn');
+        if (!checkButton) {
+            console.log("Server check button not found");
+            return;
+        }
+        
+        console.log("Updating server check button, serverAvailable:", serverAvailable);
+        
+        checkButton.disabled = false;
+        
+        if (serverAvailable) {
+            checkButton.textContent = '✓ Kết nối';
+            checkButton.style.background = 'rgba(46, 213, 115, 0.7)';
+            checkButton.style.color = 'white';
+            checkButton.title = 'Server khả dụng - Nhấn để kiểm tra lại';
+        } else {
+            checkButton.textContent = '⚠ Kiểm tra lại';
+            checkButton.style.background = 'rgba(255, 71, 87, 0.7)';
+            checkButton.style.color = 'white';
+            checkButton.title = 'Server không khả dụng - Nhấn để kiểm tra lại';
+        }
+        
+        console.log("Server check button updated:", checkButton.textContent);
+    }
+    
+    // Handle save mode change
+    function handleSaveModeChange(mode) {
+        console.log("Save mode changed to:", mode);
+        forcedSaveMode = mode;
+        
+        if (mode === 'server') {
+            // Show password input
+            serverPasswordContainer.style.display = 'flex';
+            
+            // Ensure the check button is added
+            setTimeout(() => {
+                addServerCheckButton();
+            }, 50);
+            
+            // Check server availability
+            showNotification('Đang kiểm tra kết nối server...', 'info');
+            checkServerAvailability().then(() => {
+                if (!serverAvailable) {
+                    showNotification('Server không khả dụng. Vui lòng kiểm tra server và nhấn nút Kiểm tra lại.', 'warning');
+                } else {
+                    showNotification('Đã kết nối server thành công!', 'success');
+                }
+                updateServerCheckButton();
+            });
+        } else {
+            // Hide password input
+            serverPasswordContainer.style.display = 'none';
+            forcedSaveMode = 'local';
+        }
+        
+        updateSaveButtonState();
+    }
+    
+    // Validate server password (không gọi updateSaveButtonState)
+    function validateServerPassword() {
+        if (!serverPasswordInput) return false;
+        
+        const inputPassword = serverPasswordInput.value;
+        const isValid = inputPassword === serverPassword;
+        
+        // Update input styling based on validation
+        if (inputPassword.length > 0) {
+            if (isValid) {
+                serverPasswordInput.style.borderColor = '#4ecca3';
+                serverPasswordInput.style.boxShadow = '0 0 5px rgba(78, 204, 163, 0.3)';
+            } else {
+                serverPasswordInput.style.borderColor = '#ff6b6b';
+                serverPasswordInput.style.boxShadow = '0 0 5px rgba(255, 107, 107, 0.3)';
+            }
+        } else {
+            serverPasswordInput.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            serverPasswordInput.style.boxShadow = 'none';
+        }
+        
+        return isValid;
+    }
+    
+    // Check if password is valid without styling update
+    function checkPasswordValidity() {
+        if (!serverPasswordInput) return false;
+        const inputPassword = serverPasswordInput.value;
+        return inputPassword === serverPassword;
+    }
+    
+    // Update save button state based on mode and password
+    function updateSaveButtonState() {
+        if (!saveSongBtn) return;
+        
+        if (forcedSaveMode === 'server') {
+            const isPasswordValid = checkPasswordValidity();
+            const hasPassword = serverPasswordInput && serverPasswordInput.value.length > 0;
+            
+            if (!hasPassword) {
+                saveSongBtn.style.opacity = '0.5';
+                saveSongBtn.style.cursor = 'not-allowed';
+                saveSongBtn.title = 'Vui lòng nhập mật khẩu server';
+            } else if (!isPasswordValid) {
+                saveSongBtn.style.opacity = '0.5';
+                saveSongBtn.style.cursor = 'not-allowed';
+                saveSongBtn.title = 'Mật khẩu không đúng';
+            } else {
+                saveSongBtn.style.opacity = '1';
+                saveSongBtn.style.cursor = 'pointer';
+                saveSongBtn.title = 'Lưu bài hát vào server';
+            }
+        } else {
+            saveSongBtn.style.opacity = '1';
+            saveSongBtn.style.cursor = 'pointer';
+            saveSongBtn.title = 'Lưu bài hát vào Local Storage';
+        }
+        
+        // Update status indicator
+        updateSaveStatusIndicator();
+    }
+    
+    // Get current save mode (with fallback logic)
+    function getCurrentSaveMode() {
+        console.log("=== GET CURRENT SAVE MODE DEBUG ===");
+        console.log("- forcedSaveMode:", forcedSaveMode);
+        console.log("- serverAvailable:", serverAvailable);
+        console.log("- checkPasswordValidity():", checkPasswordValidity());
+        
+        if (forcedSaveMode === 'local') {
+            console.log("- Returning 'local' (forced local mode)");
+            return 'local';
+        } else if (forcedSaveMode === 'server') {
+            // Check password validity
+            if (checkPasswordValidity() && serverAvailable) {
+                console.log("- Returning 'server' (forced server mode with valid password and server available)");
+                return 'server';
+            } else {
+                console.log("- Returning 'local' (forced server mode but password invalid or server unavailable)");
+                console.log("  - Password valid:", checkPasswordValidity());
+                console.log("  - Server available:", serverAvailable);
+                return 'local';
+            }
+        } else {
+            // Auto-detect mode (fallback to original logic)
+            const autoMode = serverAvailable ? 'server' : 'local';
+            console.log("- Returning '" + autoMode + "' (auto-detect mode)");
+            return autoMode;
+        }
     }
     
     // Xử lý sự kiện mousemove để di chuyển note hoặc thay đổi kích thước
@@ -2812,18 +3709,37 @@ window.onload = function() {
     
     // Delete a song
     function deleteSong(songId) {
-        // Không sử dụng confirm để tránh popup
+        // Tạo backup của danh sách bài hát hiện tại để phục hồi nếu có lỗi
+        const songsBackup = [...songs];
+        
+        // Hiển thị thông báo đang xóa
+        showNotification('Đang xóa bài hát...', 'info');
         
         if (serverAvailable) {
+            // Ghi log yêu cầu API
+            logApiRequest('DELETE', `${API_URL}/${songId}`, null);
+            
             // Delete from server
             fetch(`${API_URL}/${songId}`, {
                 method: 'DELETE',
             })
             .then(response => {
                 if (response.ok) {
+                    // Xóa bài hát khỏi mảng dữ liệu
+                    const songToDelete = songs.find(s => s.id === songId);
+                    const songName = songToDelete ? songToDelete.name : 'Bài hát';
+                    const originalLength = songs.length;
+                    
                     // Remove from local array
                     songs = songs.filter(s => s.id !== songId);
-                    updateSongList();
+                    
+                    // Log số lượng bài hát còn lại để debug
+                    console.log(`Đã xóa bài hát "${songName}". Còn lại ${songs.length}/${originalLength} bài hát.`);
+                    
+                    // Cập nhật lại localStorage nếu cần
+                    if (!serverAvailable) {
+                        saveSongs();
+                    }
                     
                     // Clear editor if the current song was deleted
                     if (currentSong && currentSong.id === songId) {
@@ -2833,35 +3749,94 @@ window.onload = function() {
                         songBpmInput.value = 120;
                     }
                     
-                    alert('Song deleted successfully!');
+                    // Cập nhật UI với độ trễ lớn hơn để đảm bảo các thao tác trước hoàn tất
+                    setTimeout(() => {
+                        try {
+                            // Xóa tất cả các phần tử con trong song-list trước
+                            const songList = document.getElementById('song-list');
+                            if (songList) {
+                                while (songList.firstChild) {
+                                    songList.removeChild(songList.firstChild);
+                                }
+                            }
+                            
+                            // Cập nhật lại danh sách UI
+                            updateSongList();
+                            
+                            // Hiển thị thông báo thành công
+                            showNotification(`Đã xóa bài hát "${songName}" thành công!`, 'success');
+                        } catch (renderError) {
+                            console.error("Lỗi khi cập nhật UI sau khi xóa:", renderError);
+                            showErrorMessage("Lỗi hiển thị - vui lòng nhấn nút Làm mới");
+                        }
+                    }, 300);
                 } else {
-                    throw new Error('Failed to delete song');
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
                 }
             })
             .catch(error => {
-                console.error('Error deleting song:', error);
-                alert('Failed to delete song from server. Using localStorage as fallback.');
+                handleApiError(error, 'xóa bài hát');
                 
-                // Fallback to localStorage
-                songs = songs.filter(s => s.id !== songId);
-                saveSongs();
-                updateSongList();
+                // Khôi phục danh sách nếu có lỗi
+                songs = songsBackup;
+                
+                // Fallback to localStorage if server fails
+                deleteFromLocalStorage();
             });
         } else {
-            // Delete from localStorage
-            songs = songs.filter(s => s.id !== songId);
-            saveSongs();
-            updateSongList();
-            
-            // Clear editor if the current song was deleted
-            if (currentSong && currentSong.id === songId) {
-                currentSong = null;
-                clearNoteGrid();
-                songNameInput.value = '';
-                songBpmInput.value = 120;
+            // Xóa từ localStorage
+            deleteFromLocalStorage();
+        }
+        
+        // Hàm xóa từ localStorage để tránh trùng lặp code
+        function deleteFromLocalStorage() {
+            try {
+                const songToDelete = songs.find(s => s.id === songId);
+                const songName = songToDelete ? songToDelete.name : 'Bài hát';
+                const originalLength = songs.length;
+                
+                // Xóa bài hát khỏi mảng
+                songs = songs.filter(s => s.id !== songId);
+                
+                // Log chi tiết
+                console.log(`Đã xóa bài hát "${songName}" từ localStorage. Còn lại ${songs.length}/${originalLength} bài hát.`);
+                
+                // Lưu thay đổi vào localStorage ngay lập tức
+                saveSongs();
+                
+                // Clear editor if the current song was deleted
+                if (currentSong && currentSong.id === songId) {
+                    currentSong = null;
+                    clearNoteGrid();
+                    songNameInput.value = '';
+                    songBpmInput.value = 120;
+                }
+                
+                // Đảm bảo cập nhật giao diện người dùng với độ trễ lớn hơn
+                setTimeout(() => {
+                    try {
+                        // Xóa tất cả các phần tử con trong song-list trước
+                        const songList = document.getElementById('song-list');
+                        if (songList) {
+                            while (songList.firstChild) {
+                                songList.removeChild(songList.firstChild);
+                            }
+                        }
+                        
+                        // Cập nhật lại danh sách UI
+                        updateSongList();
+                        
+                        // Hiển thị thông báo thành công
+                        showNotification(`Đã xóa bài hát "${songName}" thành công!`, 'success');
+                    } catch (renderError) {
+                        console.error("Lỗi khi cập nhật UI sau khi xóa từ localStorage:", renderError);
+                        showErrorMessage("Lỗi hiển thị - vui lòng nhấn nút Làm mới");
+                    }
+                }, 300);
+            } catch (error) {
+                console.error("Lỗi khi xóa bài hát từ localStorage:", error);
+                showErrorMessage("Không thể xóa bài hát. Vui lòng thử lại.");
             }
-            
-            alert('Song deleted successfully!');
         }
     }
     
@@ -3008,4 +3983,369 @@ window.onload = function() {
     
     // Kiểm tra định kỳ các note bị lỗi
     setInterval(checkForNoteIssues, 5000);
+    
+    // Thiết lập tự động lưu bài hát
+    function setupAutoSave() {
+        // Tự động lưu sau mỗi 30 giây nếu có thay đổi
+        let lastSaveTime = Date.now();
+        let hasChanges = false;
+        
+        // Theo dõi thay đổi khi thêm/xóa note
+        const observer = new MutationObserver(function(mutations) {
+            hasChanges = true;
+            console.log("Phát hiện thay đổi trong editor, sẽ tự động lưu sau 30 giây");
+        });
+        
+        // Cấu hình observer để theo dõi thay đổi con của noteGrid
+        observer.observe(noteGrid, { childList: true });
+        
+        // Theo dõi thay đổi tên và BPM
+        songNameInput.addEventListener('input', () => { hasChanges = true; });
+        songBpmInput.addEventListener('input', () => { hasChanges = true; });
+        
+        // Hàm lưu tự động
+        const autoSave = function() {
+            if (hasChanges && currentSong) {
+                const now = Date.now();
+                // Chỉ lưu nếu đã qua 30 giây kể từ lần lưu cuối
+                if (now - lastSaveTime > 30000) {
+                    console.log("Tự động lưu bài hát:", currentSong.name);
+                    saveSong();
+                    lastSaveTime = now;
+                    hasChanges = false;
+                    
+                    // Hiển thị thông báo nhỏ
+                    const autoSaveNotif = document.createElement('div');
+                    autoSaveNotif.textContent = "Đã tự động lưu";
+                    autoSaveNotif.style.position = 'fixed';
+                    autoSaveNotif.style.bottom = '10px';
+                    autoSaveNotif.style.right = '10px';
+                    autoSaveNotif.style.background = 'rgba(46, 213, 115, 0.7)';
+                    autoSaveNotif.style.color = 'white';
+                    autoSaveNotif.style.padding = '5px 10px';
+                    autoSaveNotif.style.borderRadius = '3px';
+                    autoSaveNotif.style.fontSize = '12px';
+                    autoSaveNotif.style.opacity = '0.9';
+                    autoSaveNotif.style.zIndex = '1000';
+                    
+                    document.body.appendChild(autoSaveNotif);
+                    
+                    // Tự động xóa thông báo sau 2 giây
+                    setTimeout(() => {
+                        autoSaveNotif.style.opacity = '0';
+                        autoSaveNotif.style.transition = 'opacity 0.5s';
+                        setTimeout(() => {
+                            if (autoSaveNotif.parentNode) {
+                                document.body.removeChild(autoSaveNotif);
+                            }
+                        }, 500);
+                    }, 2000);
+                }
+            }
+            
+            // Lặp lại kiểm tra mỗi 5 giây
+            setTimeout(autoSave, 5000);
+        };
+        
+        // Bắt đầu chu kỳ tự động lưu
+        setTimeout(autoSave, 5000);
+        
+        // Thêm sự kiện khi chuyển trang hoặc đóng tab
+        window.addEventListener('beforeunload', function(e) {
+            if (hasChanges && currentSong) {
+                // Lưu trước khi rời trang
+                saveSong();
+                
+                // Yêu cầu xác nhận
+                const confirmationMessage = 'Bạn có bài hát chưa lưu. Bạn có chắc chắn muốn rời đi?';
+                (e || window.event).returnValue = confirmationMessage;
+                return confirmationMessage;
+            }
+        });
+    }
+    
+    // Hàm mới để ghi log API request chi tiết
+    function logApiRequest(method, url, data, logToConsole = true) {
+        const logData = {
+            timestamp: new Date().toISOString(),
+            method: method,
+            url: url,
+            data: data
+        };
+        
+        // Lưu log vào localStorage để debug
+        try {
+            const apiLogs = JSON.parse(localStorage.getItem('piano_tiles_api_logs') || '[]');
+            apiLogs.push(logData);
+            // Giữ tối đa 20 log gần nhất
+            if (apiLogs.length > 20) apiLogs.shift();
+            localStorage.setItem('piano_tiles_api_logs', JSON.stringify(apiLogs));
+        } catch (e) {
+            console.error("Failed to save API log:", e);
+        }
+        
+        // Ghi log ra console
+        if (logToConsole) {
+            console.group(`API Request: ${method} ${url}`);
+            console.log("Request data:", data);
+            console.log("Timestamp:", logData.timestamp);
+            console.groupEnd();
+        }
+        
+        return logData;
+    }
+    
+    // Hàm mới để xử lý lỗi API và hiển thị thông báo người dùng
+    function handleApiError(error, operation) {
+        console.error(`API Error during ${operation}:`, error);
+        
+        let errorMessage = `Lỗi khi ${operation}`;
+        
+        // Phân tích lỗi để đưa ra thông báo cụ thể hơn
+        if (error.message) {
+            if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+                errorMessage = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.';
+            } else if (error.message.includes('404')) {
+                errorMessage = 'Không tìm thấy dữ liệu trên server.';
+            } else if (error.message.includes('500')) {
+                errorMessage = 'Lỗi server. Vui lòng thử lại sau.';
+            } else if (error.message.includes('403')) {
+                errorMessage = 'Không có quyền truy cập dữ liệu.';
+            }
+        }
+        
+        // Lưu lỗi vào localStorage để debug
+        try {
+            const errorLogs = JSON.parse(localStorage.getItem('piano_tiles_error_logs') || '[]');
+            errorLogs.push({
+                timestamp: new Date().toISOString(),
+                operation: operation,
+                error: error.toString(),
+                message: errorMessage
+            });
+            // Giữ tối đa 20 lỗi gần nhất
+            if (errorLogs.length > 20) errorLogs.shift();
+            localStorage.setItem('piano_tiles_error_logs', JSON.stringify(errorLogs));
+        } catch (e) {
+            console.error("Failed to save error log:", e);
+        }
+        
+        showNotification(errorMessage, 'error');
+        return errorMessage;
+    }
+    
+    // Load songs from server
+    function loadSongs() {
+        console.log("Loading songs from server...");
+        showNotification('Đang tải danh sách bài hát...', 'info');
+        
+        fetch(API_URL)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(serverSongs => {
+                console.log("Raw server response:", serverSongs);
+                
+                // Kiểm tra dữ liệu hợp lệ
+                if (!Array.isArray(serverSongs)) {
+                    console.warn("Server didn't return an array:", serverSongs);
+                    throw new Error("Invalid data format from server");
+                }
+                
+                // Dọn dẹp duplicate records
+                const cleanedSongs = cleanupDuplicates(serverSongs);
+                
+                // Nếu có duplicate, cần ghi lại lên server
+                if (cleanedSongs.length !== serverSongs.length) {
+                    console.log(`Found and cleaned ${serverSongs.length - cleanedSongs.length} duplicate songs`);
+                    updateServerWithCleanedData(cleanedSongs);
+                }
+                
+                songs = cleanedSongs;
+                updateSongList();
+                console.log(`Loaded ${songs.length} songs from server`);
+                showNotification(`Đã tải ${songs.length} bài hát từ server`, 'success');
+            })
+            .catch(error => {
+                console.error("Error loading songs:", error);
+                handleApiError(error, 'tải danh sách bài hát');
+                
+                // Fall back to localStorage
+                loadSongsFromLocalStorage();
+            });
+    }
+    
+    // Hàm dọn dẹp duplicate records
+    function cleanupDuplicates(songsArray) {
+        console.log("Cleaning up duplicates...");
+        
+        const uniqueSongs = [];
+        const seenIds = new Set();
+        const songsByName = new Map();
+        
+        for (const song of songsArray) {
+            if (!song || !song.id) {
+                console.warn("Invalid song object:", song);
+                continue;
+            }
+            
+            // Kiểm tra ID duplicate
+            if (seenIds.has(song.id)) {
+                console.warn(`Duplicate ID found: ${song.id}`);
+                continue;
+            }
+            
+            // Kiểm tra duplicate theo tên và nội dung
+            const songKey = `${song.name}_${song.bpm}_${JSON.stringify(song.notes || [])}`;
+            if (songsByName.has(songKey)) {
+                console.warn(`Duplicate content found for song: ${song.name} (ID: ${song.id})`);
+                
+                // Giữ lại bài hát có ID không phải temp (ưu tiên ID chính thức)
+                const existingSong = songsByName.get(songKey);
+                if (song.id.startsWith('temp_') && !existingSong.id.startsWith('temp_')) {
+                    // Bỏ qua bài hát này vì có ID tạm thời và đã có bài hát với ID chính thức
+                    continue;
+                } else if (!song.id.startsWith('temp_') && existingSong.id.startsWith('temp_')) {
+                    // Thay thế bài hát cũ có ID tạm thời bằng bài hát có ID chính thức
+                    const existingIndex = uniqueSongs.findIndex(s => s.id === existingSong.id);
+                    if (existingIndex !== -1) {
+                        uniqueSongs[existingIndex] = song;
+                        songsByName.set(songKey, song);
+                        seenIds.delete(existingSong.id);
+                        seenIds.add(song.id);
+                        continue;
+                    }
+                } else {
+                    // Cả hai đều có cùng loại ID, giữ lại cái mới hơn
+                    const existingSong = songsByName.get(songKey);
+                    const existingTimestamp = extractTimestamp(existingSong.id);
+                    const currentTimestamp = extractTimestamp(song.id);
+                    
+                    if (currentTimestamp > existingTimestamp) {
+                        // Thay thế bài hát cũ bằng bài hát mới hơn
+                        const existingIndex = uniqueSongs.findIndex(s => s.id === existingSong.id);
+                        if (existingIndex !== -1) {
+                            uniqueSongs[existingIndex] = song;
+                            songsByName.set(songKey, song);
+                            seenIds.delete(existingSong.id);
+                            seenIds.add(song.id);
+                            continue;
+                        }
+                    } else {
+                        // Bỏ qua bài hát hiện tại vì cũ hơn
+                        continue;
+                    }
+                }
+            }
+            
+            // Thêm bài hát unique
+            uniqueSongs.push(song);
+            seenIds.add(song.id);
+            songsByName.set(songKey, song);
+        }
+        
+        console.log(`Cleaned ${songsArray.length} songs down to ${uniqueSongs.length} unique songs`);
+        return uniqueSongs;
+    }
+    
+    // Hàm extract timestamp từ ID
+    function extractTimestamp(id) {
+        if (id.startsWith('temp_')) {
+            const timestamp = id.substring(5); // Bỏ "temp_"
+            return parseInt(timestamp) || 0;
+        } else if (id.startsWith('song_')) {
+            const timestamp = id.substring(5); // Bỏ "song_"
+            return parseInt(timestamp) || 0;
+        }
+        return 0;
+    }
+    
+    // Hàm cập nhật server với dữ liệu đã dọn dẹp
+    function updateServerWithCleanedData(cleanedSongs) {
+        console.log("Updating server with cleaned data...");
+        
+        // Tạo request body với songs và password
+        const requestBody = {
+            songs: cleanedSongs,
+            password: serverPassword
+        };
+        
+        // Ghi đè toàn bộ dữ liệu trên server với dữ liệu đã dọn dẹp
+        fetch(API_URL + '/cleanup', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+        })
+        .then(response => {
+            if (response.ok) {
+                console.log("Successfully cleaned up server data");
+                showNotification('Đã dọn dẹp dữ liệu trùng lặp trên server', 'success');
+            } else {
+                console.warn("Failed to cleanup server data, status:", response.status);
+            }
+        })
+        .catch(error => {
+            console.warn("Error cleaning up server data:", error);
+            // Không hiển thị lỗi này cho người dùng vì không ảnh hưởng đến chức năng chính
+        });
+    }
+
+    // First check server availability
+    checkServerAvailability().then(() => {
+        // Load songs
+        loadSongsWrapper();
+        
+        // Start auto-save after initialization
+        setupAutoSave();
+    });
+
+    function initializeUIElements() {
+        // Log all required elements for debugging
+        console.log("=== CHECKING SONG MANAGER ELEMENTS ===");
+        console.log("songNameInput:", songNameInput);
+        console.log("songBpmInput:", songBpmInput);
+        console.log("serverPasswordContainer:", serverPasswordContainer);
+        console.log("serverPasswordInput:", serverPasswordInput);
+        console.log("saveSongBtn:", saveSongBtn);
+        console.log("saveModeRadios:", saveModeRadios);
+        
+        // Create piano keys in the editor
+        createEditorPianoKeys();
+        
+        // Create grid lines
+        createGridLines();
+        
+        // Setup event listeners
+        setupSongManagerEvents();
+    }
+    
+    // Song manager initialization
+    
+    // Update save status indicator
+    function updateSaveStatusIndicator() {
+        if (!saveStatusIndicator) return;
+        
+        const currentSaveMode = getCurrentSaveMode();
+        
+        // Remove existing classes
+        saveStatusIndicator.classList.remove('server-mode', 'local-mode');
+        
+        if (currentSaveMode === 'server' && forcedSaveMode === 'server' && serverAvailable) {
+            saveStatusIndicator.textContent = '✓ Server Mode';
+            saveStatusIndicator.classList.add('server-mode');
+        } else if (forcedSaveMode === 'server' && !serverAvailable) {
+            saveStatusIndicator.textContent = '⚠ Server (Offline)';
+            saveStatusIndicator.classList.add('local-mode');
+            saveStatusIndicator.style.color = '#ff6b6b';
+        } else {
+            saveStatusIndicator.textContent = 'Local Storage';
+            saveStatusIndicator.classList.add('local-mode');
+            saveStatusIndicator.style.color = '';
+        }
+    }
 }; 

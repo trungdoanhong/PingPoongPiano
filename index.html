@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=2.0, user-scalable=yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -113,10 +113,30 @@
                                 <input type="number" id="song-bpm" min="60" max="240" value="120">
                             </div>
                         </div>
+                        <div class="save-mode-selection">
+                            <div class="save-mode-control">
+                                <label>Save Mode:</label>
+                                <div class="save-mode-options">
+                                    <label class="save-mode-option">
+                                        <input type="radio" name="save-mode" value="local" checked>
+                                        <span>Local Storage</span>
+                                    </label>
+                                    <label class="save-mode-option">
+                                        <input type="radio" name="save-mode" value="server">
+                                        <span>Server</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="server-password" id="server-password-container" style="display: none;">
+                                <input type="password" id="server-password" placeholder="Server Password">
+                                <div class="password-hint">Password required for server save</div>
+                            </div>
+                        </div>
                         <div class="editor-actions">
                             <button id="save-song-btn">Save</button>
                             <button id="export-song-btn">Export</button>
                             <button id="test-song-btn">Test</button>
+                            <div class="save-status" id="save-status">Local Storage</div>
                         </div>
                     </div>
                     
