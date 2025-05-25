@@ -2,6 +2,21 @@
 window.onload = function() {
     console.log("Window loaded");
     
+    // Firebase variables
+    let auth, db, googleProvider;
+    let currentUser = null;
+    let currentUserRole = 'user';
+    
+    // Initialize Firebase references
+    if (window.firebaseApp) {
+        auth = window.firebaseApp.auth;
+        db = window.firebaseApp.db;
+        googleProvider = window.firebaseApp.googleProvider;
+        console.log("Firebase initialized successfully");
+    } else {
+        console.error("Firebase not available");
+    }
+    
     // Game variables
     let score = 0;
     let gameSpeed = 0.3;
@@ -86,11 +101,28 @@ window.onload = function() {
     const controlsContainer = document.getElementById('controls-container');
     const audioAnalyzer = document.getElementById('audio-analyzer');
     const songManager = document.getElementById('song-manager');
+    const adminPanel = document.getElementById('admin-panel');
     const startRecording = document.getElementById('start-recording');
     const stopRecording = document.getElementById('stop-recording');
     const waveformCanvas = document.getElementById('waveform');
     const detectedNote = document.getElementById('detected-note');
     const detectedFrequency = document.getElementById('detected-frequency');
+    
+    // Authentication elements
+    const userPanel = document.getElementById('user-panel');
+    const userInfo = document.getElementById('user-info');
+    const loginPanel = document.getElementById('login-panel');
+    const googleLoginBtn = document.getElementById('google-login-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    const userAvatar = document.getElementById('user-avatar');
+    const userName = document.getElementById('user-name');
+    const userRole = document.getElementById('user-role');
+    
+    // Admin elements
+    const totalUsersSpan = document.getElementById('total-users');
+    const totalSongsSpan = document.getElementById('total-songs');
+    const userList = document.getElementById('user-list');
+    const adminSongList = document.getElementById('admin-song-list');
     
     // Canvas context
     const canvasCtx = waveformCanvas.getContext('2d');
@@ -352,6 +384,126 @@ window.onload = function() {
         return noteName + octave;
     }
     
+    // Authentication Functions
+    
+    // Google Sign In
+    async function signInWithGoogle() {
+        try {
+            console.log("Attempting Google sign in...");
+            const result = await auth.signInWithPopup(googleProvider);
+            const user = result.user;
+            
+            console.log("Google sign in successful:", user.email);
+            
+            // Get user role
+            const role = await window.firebaseApp.getUserRole(user.uid, user.email);
+            
+            // Update last login
+            await window.firebaseApp.updateUserLastLogin(user.uid);
+            
+            // Set current user info
+            currentUser = user;
+            currentUserRole = role;
+            
+            // Update UI
+            updateUserUI(user, role);
+            
+            showNotification(`Welcome ${user.displayName}!`, 'success');
+            
+        } catch (error) {
+            console.error("Error signing in with Google:", error);
+            showNotification('Login failed: ' + error.message, 'error');
+        }
+    }
+    
+    // Sign Out
+    async function signOut() {
+        try {
+            await auth.signOut();
+            currentUser = null;
+            currentUserRole = 'user';
+            
+            // Update UI
+            updateUserUI(null, 'user');
+            
+            // Switch to game mode if in admin mode
+            if (currentMode === 'admin') {
+                switchMode('game');
+            }
+            
+            showNotification('Logged out successfully', 'success');
+            
+        } catch (error) {
+            console.error("Error signing out:", error);
+            showNotification('Logout failed: ' + error.message, 'error');
+        }
+    }
+    
+    // Update User UI
+    function updateUserUI(user, role) {
+        console.log('Updating user UI:', user?.email, 'Role:', role);
+        if (user) {
+            // Show user info, hide login button
+            userInfo.style.display = 'flex';
+            loginPanel.style.display = 'none';
+            
+            // Update user info
+            userAvatar.src = user.photoURL || 'https://via.placeholder.com/32';
+            userName.textContent = user.displayName || user.email;
+            userRole.textContent = role.toUpperCase();
+            userRole.className = `user-role ${role}`;
+            
+            // Show admin menu item for admin users
+            const adminMenuItem = document.querySelector('.menu-item[data-mode="admin"]');
+            console.log('Admin menu item found:', !!adminMenuItem, 'User role:', role);
+            if (role === 'admin') {
+                console.log('Showing admin menu item');
+                adminMenuItem.style.display = 'block';
+            } else {
+                console.log('Hiding admin menu item');
+                adminMenuItem.style.display = 'none';
+            }
+            
+        } else {
+            // Show login button, hide user info
+            userInfo.style.display = 'none';
+            loginPanel.style.display = 'block';
+            
+            // Hide admin menu item
+            const adminMenuItem = document.querySelector('.menu-item[data-mode="admin"]');
+            adminMenuItem.style.display = 'none';
+        }
+        
+        // Update save mode options based on user role
+        updateSaveModeOptions(role);
+    }
+    
+    // Update save mode options based on user role
+    function updateSaveModeOptions(role) {
+        const serverSaveModeOption = document.querySelector('input[name="save-mode"][value="server"]');
+        const serverLabel = serverSaveModeOption?.parentElement;
+        
+        if (window.firebaseApp && window.firebaseApp.canSaveToServer(role)) {
+            // User can save to server
+            if (serverLabel) {
+                serverLabel.style.display = 'block';
+                serverSaveModeOption.disabled = false;
+            }
+        } else {
+            // User can only save locally
+            if (serverLabel) {
+                serverLabel.style.display = 'none';
+                serverSaveModeOption.disabled = true;
+                // Switch to local mode if currently on server mode
+                if (forcedSaveMode === 'server') {
+                    document.querySelector('input[name="save-mode"][value="local"]').checked = true;
+                    forcedSaveMode = 'local';
+                    serverPasswordContainer.style.display = 'none';
+                }
+            }
+        }
+    }
+    
     // Toggle the menu dropdown
     function toggleMenuDropdown() {
         menuButton.classList.toggle('active');
@@ -401,6 +553,8 @@ window.onload = function() {
             menuButton.firstChild.textContent = 'Audio Analyzer ▾';
         } else if (mode === 'song-manager') {
             menuButton.firstChild.textContent = 'Song Manager ▾';
+        } else if (mode === 'admin') {
+            menuButton.firstChild.textContent = 'Admin Panel ▾';
         } else if (mode === 'music-theory') {
             menuButton.firstChild.textContent = 'Music Theory ▾';
             // Redirect to music theory page
@@ -424,6 +578,7 @@ window.onload = function() {
         gameContent.style.display = 'none';
         audioAnalyzer.style.display = 'none';
         songManager.style.display = 'none';
+        adminPanel.style.display = 'none';
         
         // Switch mode
         currentMode = mode;
@@ -505,6 +660,34 @@ window.onload = function() {
             
             // Initialize song manager if not already done
             initSongManager();
+        } else if (mode === 'admin') {
+            // Switch to admin panel (only for admin users)
+            if (currentUserRole !== 'admin') {
+                showNotification('Access denied: Admin privileges required', 'error');
+                switchMode('game');
+                return;
+            }
+            
+            adminPanel.style.display = 'flex';
+            
+            // Add scrollable class to body
+            document.body.classList.add('scrollable');
+            
+            // Hide score panel and game controls
+            scoreElement.parentElement.style.display = 'none';
+            speedDownBtn.parentElement.style.display = 'none';
+            marginDownBtn.parentElement.style.display = 'none';
+            
+            // Add analyzer mode class
+            controlsContainer.classList.add('analyzer-mode');
+            
+            // Pause game if running
+            if (isGameRunning) {
+                cancelAnimationFrame(gameLoop);
+            }
+            
+            // Initialize admin panel
+            initAdminPanel();
         }
     }
     
@@ -1076,6 +1259,46 @@ window.onload = function() {
             stopAudioRecording();
         });
         
+        // Set up authentication event listeners
+        if (auth) {
+            // Google login button
+            googleLoginBtn.addEventListener('click', signInWithGoogle);
+            
+            // Logout button
+            logoutBtn.addEventListener('click', signOut);
+            
+            // Listen for auth state changes
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    console.log("User signed in:", user.email);
+                    
+                    // Get user role
+                    const role = await window.firebaseApp.getUserRole(user.uid, user.email);
+                    
+                    // Set current user info
+                    currentUser = user;
+                    currentUserRole = role;
+                    
+                    // Update UI
+                    updateUserUI(user, role);
+                    
+                    // Load songs from Firebase if user has permission
+                    if (window.firebaseApp.canSaveToServer(role)) {
+                        loadSongsWrapper(true);
+                    }
+                    
+                } else {
+                    console.log("User signed out");
+                    currentUser = null;
+                    currentUserRole = 'user';
+                    updateUserUI(null, 'user');
+                    
+                    // Load songs from localStorage
+                    loadSongsWrapper(true);
+                }
+            });
+        }
+        
         // Set up start and restart button listeners
         startButton.addEventListener('click', function() {
             startGame();
@@ -1363,52 +1586,55 @@ window.onload = function() {
         }, 2000);
     }
     
-    // Check if server is available
+    // Check if Firebase is available and user can save to server
     function checkServerAvailability() {
         // Thêm hiển thị trạng thái kết nối
         updateConnectionStatus('Đang kiểm tra kết nối...');
         
-        console.log("Checking server availability at:", API_URL);
+        console.log("Checking Firebase availability and user permissions");
         
-        // Create a timeout promise
-        const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => {
-                reject(new Error('Connection timeout after 5 seconds'));
-            }, 5000);
-        });
-        
-        // Create the fetch promise
-        const fetchPromise = fetch(API_URL, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
+        return new Promise((resolve) => {
+            try {
+                // Check if Firebase is initialized
+                if (!db || !auth) {
+                    console.log("Firebase not initialized");
+                    serverAvailable = false;
+                    updateConnectionStatus('Firebase không khả dụng');
+                    resolve(false);
+                    return;
+                }
+                
+                // Check if user is authenticated
+                if (!currentUser) {
+                    console.log("User not authenticated");
+                    serverAvailable = false;
+                    updateConnectionStatus('Cần đăng nhập để lưu trên cloud');
+                    resolve(false);
+                    return;
+                }
+                
+                // Check if user has permission to save to server
+                if (!window.firebaseApp.canSaveToServer(currentUserRole)) {
+                    console.log("User doesn't have permission to save to server");
+                    serverAvailable = false;
+                    updateConnectionStatus('Không có quyền lưu trên cloud');
+                    resolve(false);
+                    return;
+                }
+                
+                // All checks passed
+                console.log("Firebase available and user has permissions");
+                serverAvailable = true;
+                updateConnectionStatus('Có thể lưu trên Firebase');
+                resolve(true);
+                
+            } catch (error) {
+                console.error("Error checking Firebase availability:", error);
+                serverAvailable = false;
+                updateConnectionStatus('Lỗi kết nối Firebase');
+                resolve(false);
             }
         });
-        
-        // Race between fetch and timeout
-        return Promise.race([fetchPromise, timeoutPromise])
-            .then(response => {
-                console.log("Server response status:", response.status);
-                if (response.ok) {
-                    serverAvailable = true;
-                    updateConnectionStatus('Đã kết nối với server');
-                    console.log("Server is available and responding correctly");
-                    return true;
-                } else {
-                    throw new Error(`Server returned status ${response.status}`);
-                }
-            })
-            .catch(error => {
-                serverAvailable = false;
-                updateConnectionStatus('Đang sử dụng lưu trữ cục bộ');
-                console.error("Server is not available:", error.message);
-                console.log("Error details:", {
-                    name: error.name,
-                    message: error.message,
-                    stack: error.stack
-                });
-                return false;
-            });
     }
     
     // Update connection status và thay thế function loadSongs cũ bằng mới
@@ -1438,29 +1664,32 @@ window.onload = function() {
         // Hiển thị trạng thái tải
         updateSongLoadingStatus('Đang tải bài hát...');
         
-        if (serverAvailable) {
-            // Use new loadSongs function
+        // Check if user is authenticated and can use Firebase
+        if (currentUser && window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole)) {
+            console.log("User authenticated, loading from Firebase");
             return loadSongs()
                 .then(() => {
                     updateSongLoadingStatus('');
                     isLoadingSongs = false;
-                    
-                    // Add default song if no songs exist
-                    if (songs.length === 0) {
-                        return addHappyBirthdaySong().then(() => {
-                            updateSongList();
-                        });
-                    }
+                    updateSongList();
                 })
                 .catch(error => {
-                    console.error("Error in loadSongs:", error);
+                    console.error("Error loading from Firebase:", error);
                     updateConnectionStatus('Đang sử dụng lưu trữ cục bộ');
-                    serverAvailable = false;
+                    updateSongLoadingStatus('');
+                    isLoadingSongs = false;
+                    
+                    // Fallback to localStorage
                     return loadSongsFromLocalStorage();
                 });
         } else {
-            // Load from localStorage
-            return loadSongsFromLocalStorage();
+            console.log("User not authenticated or no permission, loading from localStorage");
+            return loadSongsFromLocalStorage()
+                .then(() => {
+                    updateSongLoadingStatus('');
+                    isLoadingSongs = false;
+                    updateSongList();
+                });
         }
     }
     
@@ -1505,14 +1734,13 @@ window.onload = function() {
             if (!isLocalStorageAvailable()) {
                 console.error("localStorage is not available");
                 songs = [];
-                return addHappyBirthdaySong().then(() => {
-                    updateSongList();
-                    updateSongLoadingStatus('');
-                    isLoadingSongs = false;
-                    
-                    // Thông báo về việc không thể sử dụng localStorage
-                    showErrorMessage('Không thể sử dụng bộ nhớ cục bộ. Các bài hát sẽ không được lưu khi làm mới trang.');
-                });
+                updateSongList();
+                updateSongLoadingStatus('');
+                isLoadingSongs = false;
+                
+                // Thông báo về việc không thể sử dụng localStorage
+                showErrorMessage('Không thể sử dụng bộ nhớ cục bộ. Các bài hát sẽ không được lưu khi làm mới trang.');
+                return Promise.resolve();
             }
             
             const savedSongs = localStorage.getItem('piano_tiles_songs');
@@ -1544,31 +1772,20 @@ window.onload = function() {
                 songs = [];
             }
             
-            // Add default song if no songs exist
-            if (!songs.length) {
-                console.log("Adding default Happy Birthday song");
-                return addHappyBirthdaySong().then(() => {
-                    updateSongList();
-                    updateSongLoadingStatus('');
-                    isLoadingSongs = false;
-                });
-            } else {
-                updateSongList();
-                updateSongLoadingStatus('');
-                isLoadingSongs = false;
-                return Promise.resolve();
-            }
+            // No default songs needed
+            updateSongList();
+            updateSongLoadingStatus('');
+            isLoadingSongs = false;
+            return Promise.resolve();
         } catch (e) {
             console.error("Error loading songs from localStorage:", e);
             songs = [];
-            return addHappyBirthdaySong().then(() => {
-                updateSongList();
-                updateSongLoadingStatus('');
-                isLoadingSongs = false;
-                
-                // Thông báo lỗi
-                showErrorMessage("Lỗi khi tải bài hát. Đã khởi tạo lại danh sách.");
-            });
+            updateSongList();
+            updateSongLoadingStatus('');
+            isLoadingSongs = false;
+            
+            // Thông báo lỗi
+            showErrorMessage("Lỗi khi tải bài hát. Đã khởi tạo lại danh sách.");
         }
     }
     
@@ -1754,130 +1971,119 @@ window.onload = function() {
             }
         }
         
-        // Hàm lưu bài hát mới lên server
-        function saveNewSongToServer() {
-            console.log("=== SAVE NEW SONG TO SERVER ===");
+        // Hàm lưu bài hát mới lên Firebase
+        async function saveNewSongToServer() {
+            console.log("=== SAVE NEW SONG TO FIREBASE ===");
             console.log("- Current song data:", currentSong);
-            console.log("- Server password input value:", serverPasswordInput.value);
+            console.log("- Current user:", currentUser);
             
-            // Tạo bản sao dữ liệu và xóa ID tạm thời để server tạo ID mới
-            const songDataForServer = {
-                name: currentSong.name,
-                bpm: currentSong.bpm,
-                notes: currentSong.notes,
-                password: serverPasswordInput.value // Include password for verification
-                // Không gửi ID để server tự tạo ID mới
-            };
-            
-            console.log("- Data to send to server:", songDataForServer);
-            
-            // Log request để debug
-            logApiRequest('POST', API_URL, songDataForServer);
-            
-            // Hiển thị thông báo đang lưu
-            showNotification('Đang tạo bài hát mới trên server...', 'info');
-            
-            fetch(API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(songDataForServer),
-            })
-            .then(response => {
-                console.log("- Server response status:", response.status);
-                console.log("- Server response ok:", response.ok);
-                
-                if (!response.ok) {
-                    return response.text().then(text => {
-                        console.log("- Server error response:", text);
-                        throw new Error(`Server returned ${response.status}: ${response.statusText} - ${text}`);
-                    });
+            try {
+                if (!currentUser) {
+                    throw new Error("User not authenticated");
                 }
-                return response.json();
-            })
-            .then(serverSong => {
-                console.log("- Server response for new song:", serverSong);
                 
-                // Kiểm tra response hợp lệ
-                if (!serverSong || !serverSong.id) {
-                    throw new Error("Invalid response from server: missing ID");
-                }
+                // Tạo dữ liệu để lưu
+                const songDataForFirebase = {
+                    name: currentSong.name,
+                    bpm: currentSong.bpm,
+                    notes: currentSong.notes,
+                    userId: currentUser.uid,
+                    userEmail: currentUser.email,
+                    userName: currentUser.displayName || currentUser.email,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                
+                console.log("- Data to save to Firebase:", songDataForFirebase);
+                
+                                 // Hiển thị thông báo đang lưu
+                 showNotification('Đang tạo bài hát mới trên Firebase...', 'info');
+                
+                // Lưu vào Firebase
+                const docRef = await db.collection('songs').add(songDataForFirebase);
+                console.log("- Firebase document created with ID:", docRef.id);
+                
+                // Tạo object bài hát mới với ID từ Firebase
+                const newSong = {
+                    id: docRef.id,
+                    ...songDataForFirebase
+                };
                 
                 // Xóa bài hát tạm thời khỏi danh sách local
                 const tempIndex = songs.findIndex(s => s.id === currentSong.id);
                 if (tempIndex !== -1) {
                     songs.splice(tempIndex, 1);
-                    console.log("Removed temporary song from local list");
+                    console.log("- Removed temporary song from local list");
                 }
                 
                 // Thêm bài hát mới với ID chính thức
-                songs.push(serverSong);
-                currentSong = serverSong;
+                songs.push(newSong);
+                currentSong = newSong;
                 
-                console.log("Added new song with server ID:", serverSong.id);
+                console.log("- Added new song with Firebase ID:", newSong.id);
                 
                 // Cập nhật UI
                 updateSongList();
                 showNotification(`Đã tạo bài hát "${currentSong.name}" thành công!`, 'success');
-            })
-            .catch(error => {
-                handleApiError(error, 'tạo bài hát mới trên server');
+                
+            } catch (error) {
+                console.error("Error saving to Firebase:", error);
+                handleApiError(error, 'tạo bài hát mới trên Firebase');
                 // Fallback to localStorage
-                showNotification('Lỗi lưu server, chuyển sang Local Storage', 'warning');
-                saveToLocalStorage();
-            });
-        }
+                showNotification('Lỗi lưu Firebase, chuyển sang Local Storage', 'warning');
+                                 saveToLocalStorage();
+             }
+         }
         
-        // Hàm cập nhật bài hát đã tồn tại trên server
-        function updateExistingSongOnServer() {
-            console.log("=== UPDATE EXISTING SONG ON SERVER ===");
+        // Hàm cập nhật bài hát đã tồn tại trên Firebase
+        async function updateExistingSongOnServer() {
+            console.log("=== UPDATE EXISTING SONG ON FIREBASE ===");
             console.log("- Current song ID:", currentSong.id);
             console.log("- Current song data:", currentSong);
-            console.log("- Server password input value:", serverPasswordInput.value);
+            console.log("- Current user:", currentUser);
             
-            // Tạo bản sao dữ liệu để gửi
-            const songDataForServer = JSON.parse(JSON.stringify(currentSong));
-            songDataForServer.password = serverPasswordInput.value; // Include password for verification
-            
-            console.log("- Data to send to server:", songDataForServer);
-            
-            // Log request để debug
-            logApiRequest('PUT', `${API_URL}/${currentSong.id}`, songDataForServer);
-            
-            // Hiển thị thông báo đang lưu
-            showNotification('Đang cập nhật bài hát trên server...', 'info');
-            
-            fetch(`${API_URL}/${currentSong.id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(songDataForServer),
-            })
-            .then(response => {
-                console.log("- Server response status:", response.status);
-                console.log("- Server response ok:", response.ok);
-                
-                if (!response.ok) {
-                    return response.text().then(text => {
-                        console.log("- Server error response:", text);
-                        throw new Error(`Server returned ${response.status}: ${response.statusText} - ${text}`);
-                    });
+            try {
+                if (!currentUser) {
+                    throw new Error("User not authenticated");
                 }
-                return response.json();
-            })
-            .then(updatedSong => {
-                console.log("- Server response for updated song:", updatedSong);
+                
+                // Kiểm tra quyền chỉnh sửa (chỉ chủ sở hữu hoặc admin)
+                const existingSong = songs.find(s => s.id === currentSong.id);
+                if (existingSong && existingSong.userId !== currentUser.uid && currentUserRole !== 'admin') {
+                    throw new Error("You don't have permission to edit this song");
+                }
+                
+                // Tạo dữ liệu để cập nhật
+                const updateData = {
+                    name: currentSong.name,
+                    bpm: currentSong.bpm,
+                    notes: currentSong.notes,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                
+                console.log("- Data to update in Firebase:", updateData);
+                
+                                 // Hiển thị thông báo đang lưu
+                 showNotification('Đang cập nhật bài hát trên Firebase...', 'info');
+                
+                // Cập nhật trong Firebase
+                await db.collection('songs').doc(currentSong.id).update(updateData);
+                console.log("- Firebase document updated successfully");
+                
+                // Cập nhật object bài hát local
+                const updatedSong = {
+                    ...currentSong,
+                    ...updateData
+                };
                 
                 // Cập nhật bài hát trong danh sách local
                 const index = songs.findIndex(s => s.id === currentSong.id);
                 if (index !== -1) {
                     songs[index] = updatedSong;
                     currentSong = updatedSong;
-                    console.log("Updated existing song in local list");
+                    console.log("- Updated existing song in local list");
                 } else {
-                    console.warn("Song not found in local list, adding as new");
+                    console.warn("- Song not found in local list, adding as new");
                     songs.push(updatedSong);
                     currentSong = updatedSong;
                 }
@@ -1885,13 +2091,14 @@ window.onload = function() {
                 // Cập nhật UI
                 updateSongList();
                 showNotification(`Đã cập nhật bài hát "${currentSong.name}" thành công!`, 'success');
-            })
-            .catch(error => {
-                handleApiError(error, 'cập nhật bài hát');
+                
+            } catch (error) {
+                console.error("Error updating Firebase:", error);
+                handleApiError(error, 'cập nhật bài hát trên Firebase');
                 // Fallback to localStorage
-                saveToLocalStorage();
-            });
-        }
+                                 saveToLocalStorage();
+             }
+         }
         
         // Hàm lưu vào localStorage (tránh lặp code)
         function saveToLocalStorage() {
@@ -3653,59 +3860,7 @@ window.onload = function() {
         }, 100);
     }
     
-    // Add the default Happy Birthday song
-    function addHappyBirthdaySong() {
-        const happyBirthdaySongData = {
-            id: 'default-happy-birthday',
-            name: 'Happy Birthday',
-            bpm: 120,
-            notes: happyBirthdaySong.map(([note, duration]) => ({
-                note,
-                duration,
-                position: 0 // We'll calculate this based on the sequence
-            }))
-        };
-        
-        // Calculate positions based on durations
-        let position = 0;
-        happyBirthdaySongData.notes.forEach(note => {
-            note.position = position;
-            position += note.duration * 2; // Convert musical duration to grid units
-        });
-        
-        songs.push(happyBirthdaySongData);
-        
-        // If using server, save the song to server
-        if (serverAvailable) {
-            return fetch(API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(happyBirthdaySongData),
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Không thể lưu bài hát mặc định');
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log('Happy Birthday song saved to server:', data);
-                return Promise.resolve();
-            })
-            .catch(error => {
-                console.error('Error saving default song to server:', error);
-                // If server fails, save to localStorage
-                saveSongs();
-                return Promise.resolve();
-            });
-        } else {
-            // Save to localStorage
-            saveSongs();
-            return Promise.resolve();
-        }
-    }
+    // Note: Removed default Happy Birthday song as requested
     
     // Delete a song
     function deleteSong(songId) {
@@ -4134,48 +4289,310 @@ window.onload = function() {
         return errorMessage;
     }
     
-    // Load songs from server
-    function loadSongs() {
-        console.log("Loading songs from server...");
+    // Admin Panel Functions
+    
+    // Initialize Admin Panel
+    async function initAdminPanel() {
+        if (currentUserRole !== 'admin') {
+            showNotification('Access denied: Admin privileges required', 'error');
+            return;
+        }
+        
+        console.log("Initializing admin panel...");
+        
+        try {
+            // Load all users
+            await loadAllUsers();
+            
+            // Load all songs for admin view
+            await loadAllSongsForAdmin();
+            
+            // Update stats
+            updateAdminStats();
+            
+        } catch (error) {
+            console.error("Error initializing admin panel:", error);
+            showNotification('Error loading admin panel: ' + error.message, 'error');
+        }
+    }
+    
+    // Load all users for admin
+    async function loadAllUsers() {
+        try {
+            const usersSnapshot = await db.collection('users').orderBy('lastLogin', 'desc').get();
+            const users = [];
+            
+            usersSnapshot.forEach(doc => {
+                users.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+            
+            displayUsers(users);
+            
+        } catch (error) {
+            console.error("Error loading users:", error);
+            showNotification('Error loading users: ' + error.message, 'error');
+        }
+    }
+    
+    // Load all songs for admin
+    async function loadAllSongsForAdmin() {
+        try {
+            const songsSnapshot = await db.collection('songs').orderBy('createdAt', 'desc').get();
+            const allSongs = [];
+            
+            songsSnapshot.forEach(doc => {
+                allSongs.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+            
+            displayAdminSongs(allSongs);
+            
+        } catch (error) {
+            console.error("Error loading all songs:", error);
+            showNotification('Error loading songs: ' + error.message, 'error');
+        }
+    }
+    
+    // Display users in admin panel
+    function displayUsers(users) {
+        userList.innerHTML = '';
+        
+        users.forEach(user => {
+            const userItem = document.createElement('div');
+            userItem.className = 'user-item';
+            userItem.innerHTML = `
+                <div class="user-info">
+                    <img src="${user.photoURL || 'https://via.placeholder.com/40'}" alt="Avatar" class="user-avatar-admin">
+                    <div class="user-details">
+                        <div class="user-name-admin">${user.displayName || user.email}</div>
+                        <div class="user-email-admin">${user.email}</div>
+                        <div class="user-role-badge ${user.role}">${user.role.toUpperCase()}</div>
+                    </div>
+                </div>
+                <div class="user-actions">
+                    <select class="role-select" data-user-id="${user.id}">
+                        <option value="user" ${user.role === 'user' ? 'selected' : ''}>User</option>
+                        <option value="moderator" ${user.role === 'moderator' ? 'selected' : ''}>Moderator</option>
+                        <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+                    </select>
+                    <button class="delete-user-btn" data-user-id="${user.id}" ${user.email === window.firebaseApp.ADMIN_EMAIL ? 'disabled' : ''}>Delete</button>
+                </div>
+            `;
+            
+            userList.appendChild(userItem);
+        });
+        
+        // Add event listeners for role changes
+        document.querySelectorAll('.role-select').forEach(select => {
+            select.addEventListener('change', async (e) => {
+                const userId = e.target.getAttribute('data-user-id');
+                const newRole = e.target.value;
+                await changeUserRole(userId, newRole);
+            });
+        });
+        
+        // Add event listeners for user deletion
+        document.querySelectorAll('.delete-user-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const userId = e.target.getAttribute('data-user-id');
+                if (confirm('Are you sure you want to delete this user?')) {
+                    await deleteUser(userId);
+                }
+            });
+        });
+    }
+    
+    // Display songs in admin panel
+    function displayAdminSongs(songs) {
+        adminSongList.innerHTML = '';
+        
+        songs.forEach(song => {
+            const songItem = document.createElement('div');
+            songItem.className = 'admin-song-item';
+            songItem.innerHTML = `
+                <div class="song-info-admin">
+                    <div class="song-name-admin">${song.name}</div>
+                    <div class="song-meta">
+                        <span>By: ${song.userName || song.userEmail}</span>
+                        <span>${song.notes?.length || 0} notes</span>
+                        <span>BPM: ${song.bpm}</span>
+                    </div>
+                </div>
+                <div class="song-actions-admin">
+                    <button class="play-song-btn" data-song-id="${song.id}">Play</button>
+                    <button class="delete-song-btn" data-song-id="${song.id}">Delete</button>
+                </div>
+            `;
+            
+            adminSongList.appendChild(songItem);
+        });
+        
+        // Add event listeners
+        document.querySelectorAll('.admin-song-item .play-song-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const songId = e.target.getAttribute('data-song-id');
+                const song = songs.find(s => s.id === songId);
+                if (song) {
+                    playSongFromAdmin(song);
+                }
+            });
+        });
+        
+        document.querySelectorAll('.admin-song-item .delete-song-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const songId = e.target.getAttribute('data-song-id');
+                if (confirm('Are you sure you want to delete this song?')) {
+                    await deleteSongAsAdmin(songId);
+                }
+            });
+        });
+    }
+    
+    // Update admin stats
+    function updateAdminStats() {
+        // These will be updated by the display functions
+        const userCount = userList.children.length;
+        const songCount = adminSongList.children.length;
+        
+        totalUsersSpan.textContent = userCount;
+        totalSongsSpan.textContent = songCount;
+    }
+    
+    // Change user role
+    async function changeUserRole(userId, newRole) {
+        try {
+            await db.collection('users').doc(userId).update({
+                role: newRole,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            showNotification(`User role updated to ${newRole}`, 'success');
+            
+            // Reload users to reflect changes
+            await loadAllUsers();
+            
+        } catch (error) {
+            console.error("Error updating user role:", error);
+            showNotification('Error updating user role: ' + error.message, 'error');
+        }
+    }
+    
+    // Delete user (admin only)
+    async function deleteUser(userId) {
+        try {
+            // Delete user's songs first
+            const userSongs = await db.collection('songs').where('userId', '==', userId).get();
+            const batch = db.batch();
+            
+            userSongs.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            
+            // Delete user document
+            batch.delete(db.collection('users').doc(userId));
+            
+            await batch.commit();
+            
+            showNotification('User and their songs deleted successfully', 'success');
+            
+            // Reload data
+            await loadAllUsers();
+            await loadAllSongsForAdmin();
+            updateAdminStats();
+            
+        } catch (error) {
+            console.error("Error deleting user:", error);
+            showNotification('Error deleting user: ' + error.message, 'error');
+        }
+    }
+    
+    // Delete song as admin
+    async function deleteSongAsAdmin(songId) {
+        try {
+            await db.collection('songs').doc(songId).delete();
+            
+            showNotification('Song deleted successfully', 'success');
+            
+            // Reload songs
+            await loadAllSongsForAdmin();
+            updateAdminStats();
+            
+        } catch (error) {
+            console.error("Error deleting song:", error);
+            showNotification('Error deleting song: ' + error.message, 'error');
+        }
+    }
+    
+    // Play song from admin panel
+    function playSongFromAdmin(song) {
+        // Convert to game format and play
+        const gameFormatSong = song.notes.map(note => [note.note, note.duration]);
+        
+        // Replace the happy birthday song
+        happyBirthdaySong.length = 0;
+        happyBirthdaySong.push(...gameFormatSong);
+        
+        // Switch to game mode
+        switchMode('game');
+        
+        // Update start screen
+        const startScreenTitle = document.querySelector('#start-screen h1');
+        if (startScreenTitle) {
+            startScreenTitle.textContent = song.name;
+        }
+        
+        // Start the game
+        startGame();
+    }
+    
+    // Load songs from Firebase
+    async function loadSongs() {
+        console.log("Loading songs from Firebase...");
         showNotification('Đang tải danh sách bài hát...', 'info');
         
-        fetch(API_URL)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-                }
-                return response.json();
-            })
-            .then(serverSongs => {
-                console.log("Raw server response:", serverSongs);
-                
-                // Kiểm tra dữ liệu hợp lệ
-                if (!Array.isArray(serverSongs)) {
-                    console.warn("Server didn't return an array:", serverSongs);
-                    throw new Error("Invalid data format from server");
-                }
-                
-                // Dọn dẹp duplicate records
-                const cleanedSongs = cleanupDuplicates(serverSongs);
-                
-                // Nếu có duplicate, cần ghi lại lên server
-                if (cleanedSongs.length !== serverSongs.length) {
-                    console.log(`Found and cleaned ${serverSongs.length - cleanedSongs.length} duplicate songs`);
-                    updateServerWithCleanedData(cleanedSongs);
-                }
-                
-                songs = cleanedSongs;
-                updateSongList();
-                console.log(`Loaded ${songs.length} songs from server`);
-                showNotification(`Đã tải ${songs.length} bài hát từ server`, 'success');
-            })
-            .catch(error => {
-                console.error("Error loading songs:", error);
-                handleApiError(error, 'tải danh sách bài hát');
-                
-                // Fall back to localStorage
-                loadSongsFromLocalStorage();
+        try {
+            if (!currentUser) {
+                throw new Error("User not authenticated");
+            }
+            
+            // Admin can see all songs, others see only their own
+            let songsQuery;
+            if (currentUserRole === 'admin') {
+                songsQuery = db.collection('songs').orderBy('createdAt', 'desc');
+            } else {
+                songsQuery = db.collection('songs')
+                    .where('userId', '==', currentUser.uid)
+                    .orderBy('createdAt', 'desc');
+            }
+            
+            const snapshot = await songsQuery.get();
+            const firebaseSongs = [];
+            
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                firebaseSongs.push({
+                    id: doc.id,
+                    ...data
+                });
             });
+            
+            songs = firebaseSongs;
+            updateSongList();
+            console.log(`Loaded ${songs.length} songs from Firebase`);
+            showNotification(`Đã tải ${songs.length} bài hát từ Firebase`, 'success');
+            
+        } catch (error) {
+            console.error("Error loading songs from Firebase:", error);
+            handleApiError(error, 'tải danh sách bài hát từ Firebase');
+            
+            // Fall back to localStorage
+            loadSongsFromLocalStorage();
+        }
     }
     
     // Hàm dọn dẹp duplicate records
@@ -4295,14 +4712,13 @@ window.onload = function() {
         });
     }
 
-    // First check server availability
-    checkServerAvailability().then(() => {
-        // Load songs
+    // Initialize auto-save
+    setupAutoSave();
+    
+    // Load songs initially (will load from localStorage if not authenticated)
+    setTimeout(() => {
         loadSongsWrapper();
-        
-        // Start auto-save after initialization
-        setupAutoSave();
-    });
+    }, 500);
 
     function initializeUIElements() {
         // Log all required elements for debugging
