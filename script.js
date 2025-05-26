@@ -13,8 +13,22 @@ window.onload = function() {
         db = window.firebaseApp.db;
         googleProvider = window.firebaseApp.googleProvider;
         console.log("Firebase initialized successfully");
+        
+        // Load songs immediately when Firebase is available (for all users)
+        setTimeout(() => {
+            console.log("Loading songs immediately after Firebase init...");
+            
+
+            
+            loadSongsWrapper(true);
+        }, 100);
     } else {
         console.error("Firebase not available");
+        // If Firebase not available, load from localStorage
+        setTimeout(() => {
+            console.log("Firebase not available, loading from localStorage...");
+            loadSongsFromLocalStorage();
+        }, 100);
     }
     
     // Game variables
@@ -490,29 +504,40 @@ window.onload = function() {
     // Update save mode options based on user role
     function updateSaveModeOptions(role) {
         const serverSaveModeOption = document.querySelector('input[name="save-mode"][value="server"]');
+        const localModeRadio = document.querySelector('input[name="save-mode"][value="local"]');
         const serverLabel = serverSaveModeOption?.parentElement;
         
-        if (window.firebaseApp && window.firebaseApp.canSaveToServer(role)) {
-            // User can save to server
-            if (serverLabel) {
-                serverLabel.style.display = 'block';
+        // Always ensure local mode is checked by default
+        if (localModeRadio) {
+            localModeRadio.checked = true;
+        }
+        forcedSaveMode = 'local';
+        
+        // Always show both options, but enable/disable based on permissions
+        if (serverLabel) {
+            serverLabel.style.display = 'block'; // Always show server option
+            
+            if (window.firebaseApp && window.firebaseApp.canSaveToServer(role)) {
+                // User can save to server - enable option
                 serverSaveModeOption.disabled = false;
-            }
-        } else {
-            // User can only save locally
-            if (serverLabel) {
-                serverLabel.style.display = 'none';
+                serverLabel.style.opacity = '1';
+                serverLabel.title = 'Save to Firebase Cloud';
+            } else {
+                // User can only save locally - disable but show option
                 serverSaveModeOption.disabled = true;
-                // Switch to local mode if currently on server mode
-                if (forcedSaveMode === 'server') {
-                    const localModeRadio = document.querySelector('input[name="save-mode"][value="local"]');
-                    if (localModeRadio) {
-                        localModeRadio.checked = true;
-                    }
-                    forcedSaveMode = 'local';
+                serverLabel.style.opacity = '0.5';
+                serverLabel.title = 'Requires admin/moderator permissions';
+                
+                // Ensure local mode is selected
+                if (localModeRadio) {
+                    localModeRadio.checked = true;
                 }
+                forcedSaveMode = 'local';
             }
         }
+        
+        // Update save button state
+        updateSaveButtonState();
     }
     
     // Toggle the menu dropdown
@@ -1278,49 +1303,7 @@ window.onload = function() {
             // Logout button
             logoutBtn.addEventListener('click', signOut);
             
-                    // Test Firebase connection button (create dynamically)
-        const testFirebaseBtn = document.createElement('button');
-        testFirebaseBtn.textContent = 'Test Firebase';
-        testFirebaseBtn.style.cssText = 'position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px; font-size: 12px; cursor: pointer;';
-        document.body.appendChild(testFirebaseBtn);
-        
-        testFirebaseBtn.addEventListener('click', async () => {
-            console.log('Testing Firebase connection...');
-            showNotification('Testing Firebase...', 'info');
-            
-            try {
-                // Test write to a test collection
-                const testData = {
-                    test: true,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                    user: currentUser?.email || 'anonymous'
-                };
-                
-                await db.collection('test').add(testData);
-                console.log('Firebase write test successful');
-                showNotification('Firebase connection OK!', 'success');
-            } catch (error) {
-                console.error('Firebase test failed:', error);
-                showNotification(`Firebase error: ${error.message}`, 'error');
-                
-                // If it's a permissions error, provide Firestore rules suggestion
-                if (error.code === 'permission-denied') {
-                    console.log('FIRESTORE RULES NEEDED:');
-                    console.log(`
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Allow read/write access to all authenticated users
-    match /{document=**} {
-      allow read, write: if request.auth != null;
-    }
-  }
-}
-                    `);
-                    showNotification('Permission denied. Check console for Firestore rules.', 'error');
-                }
-            }
-        });
+
         
         // Force admin button
         const forceAdminBtn = document.getElementById('force-admin-btn');
@@ -1363,8 +1346,12 @@ service cloud.firestore {
                     // Update UI
                     updateUserUI(user, role);
                     
-                    // Load songs from Firebase if user has permission
-                    if (window.firebaseApp.canSaveToServer(role)) {
+                    // Refresh songs to update permissions (but don't reload if already loaded)
+                    if (songs.length > 0) {
+                        console.log("User signed in - refreshing song list to update permissions");
+                        updateSongList(); // Just update UI, don't reload
+                    } else {
+                        console.log("User signed in - loading songs");
                         loadSongsWrapper(true);
                     }
                     
@@ -1374,8 +1361,14 @@ service cloud.firestore {
                     currentUserRole = 'user';
                     updateUserUI(null, 'user');
                     
-                    // Load songs from localStorage
-                    loadSongsWrapper(true);
+                    // Refresh songs to update permissions (but don't reload if already loaded)
+                    if (songs.length > 0) {
+                        console.log("User signed out - refreshing song list to update permissions");
+                        updateSongList(); // Just update UI, don't reload
+                    } else {
+                        console.log("User signed out - loading songs");
+                        loadSongsWrapper(true);
+                    }
                 }
             });
         }
@@ -1405,7 +1398,7 @@ service cloud.firestore {
     let selectedNoteElement = null;
     // Removed serverAvailable - now using Firebase permission checking instead
     let isLoadingSongs = false; // Biến theo dõi trạng thái đang tải bài hát
-    let forcedSaveMode = null; // null = auto-detect, 'local' = force local, 'server' = force server
+    let forcedSaveMode = 'local'; // Default to local storage, 'local' = force local, 'server' = force server
 
     // Removed API_URL - now using Firebase Firestore instead of REST API
     
@@ -1853,33 +1846,26 @@ service cloud.firestore {
         // Hiển thị trạng thái tải
         updateSongLoadingStatus('Đang tải bài hát...');
         
-        // Check if user is authenticated and can use Firebase
-        if (currentUser && window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole)) {
-            console.log("User authenticated, loading from Firebase");
-            return loadSongs()
-                .then(() => {
-                    updateSongLoadingStatus('');
-                    isLoadingSongs = false;
-                    updateSongList();
-                })
-                .catch(error => {
-                    console.error("Error loading from Firebase:", error);
-                    updateConnectionStatus('Đang sử dụng lưu trữ cục bộ');
-                    updateSongLoadingStatus('');
-                    isLoadingSongs = false;
-                    
-                    // Fallback to localStorage
-                    return loadSongsFromLocalStorage();
-                });
-        } else {
-            console.log("User not authenticated or no permission, loading from localStorage");
-            return loadSongsFromLocalStorage()
-                .then(() => {
-                    updateSongLoadingStatus('');
-                    isLoadingSongs = false;
-                    updateSongList();
-                });
-        }
+        // Load localStorage first, then try to merge with Firebase
+        console.log("Loading songs: localStorage first, then Firebase...");
+        return loadSongs()
+            .then(() => {
+                updateSongLoadingStatus('');
+                isLoadingSongs = false;
+                updateSongList();
+                updateConnectionStatus('Đã tải bài hát từ Firebase + localStorage');
+            })
+            .catch(error => {
+                console.error("Error loading from Firebase:", error);
+                updateConnectionStatus('Chỉ sử dụng localStorage (Firebase lỗi)');
+                updateSongLoadingStatus('');
+                isLoadingSongs = false;
+                
+                // If Firebase fails, localStorage was already loaded in loadSongs()
+                // Just update the UI
+                updateSongList();
+                return Promise.resolve();
+            });
     }
     
     // Hiển thị trạng thái tải bài hát
@@ -1975,17 +1961,20 @@ service cloud.firestore {
             
             // Thông báo lỗi
             showErrorMessage("Lỗi khi tải bài hát. Đã khởi tạo lại danh sách.");
+            return Promise.resolve();
         }
     }
     
     // Save songs to server or localStorage
     function saveSongs() {
-        if (currentUser && window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole)) {
-            // Note: Firebase handles individual song saves automatically
-            // This function is used only when using localStorage
-            console.log("Using Firebase for song management");
-        } else {
-            // Kiểm tra xem localStorage có khả dụng không
+        // Always allow localStorage saving regardless of user permissions
+        // This function specifically handles localStorage operations
+        console.log("=== SAVE SONGS TO LOCALSTORAGE ===");
+        console.log("Current user:", currentUser?.email);
+        console.log("Current user role:", currentUserRole);
+        console.log("Can save to server:", window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole));
+        
+        // Kiểm tra xem localStorage có khả dụng không
             if (!isLocalStorageAvailable()) {
                 console.error("localStorage is not available");
                 showErrorMessage('Không thể lưu bài hát vào bộ nhớ cục bộ. Vui lòng xuất bài hát để lưu trữ.');
@@ -2006,9 +1995,21 @@ service cloud.firestore {
                     return;
                 }
                 
-                // Lưu dữ liệu vào localStorage
-                const songsData = JSON.stringify(songs);
+                // Chỉ lưu bài hát local vào localStorage (không lưu bài hát từ Firebase)
+                const localSongs = songs.filter(song => {
+                    const storageInfo = getSongStorageInfo(song);
+                    console.log(`Song "${song.name}" (${song.id}) - Storage type: ${storageInfo.type}`);
+                    return storageInfo.type === 'local' || storageInfo.type === 'temporary';
+                });
+                
+                console.log(`=== SAVING TO LOCALSTORAGE ===`);
+                console.log(`Total songs in memory: ${songs.length}`);
+                console.log(`Local songs to save: ${localSongs.length}`);
+                console.log(`Local songs:`, localSongs.map(s => `${s.name} (${s.id})`));
+                
+                const songsData = JSON.stringify(localSongs);
                 localStorage.setItem('piano_tiles_songs', songsData);
+                console.log(`Saved ${localSongs.length} local songs to localStorage (filtered from ${songs.length} total songs)`);
                 
                 // Kiểm tra xem dữ liệu đã được lưu thành công chưa
                 const savedData = localStorage.getItem('piano_tiles_songs');
@@ -2020,7 +2021,7 @@ service cloud.firestore {
                     console.log("Saved songs data:", songsData.substring(0, 200) + "...");
                     
                     // Hiển thị thông báo xác nhận
-                    showNotification(`Đã lưu ${parsedData.length} bài hát vào bộ nhớ cục bộ`, 'success');
+                    showNotification(`Đã lưu ${localSongs.length} bài hát local vào bộ nhớ cục bộ`, 'success');
                 } else {
                     console.error("Failed to verify saved data in localStorage");
                     showErrorMessage("Lưu bài hát không thành công. Vui lòng thử lại hoặc xuất bài hát ra file.");
@@ -2036,7 +2037,6 @@ service cloud.firestore {
                     showNotification('Nên xuất bài hát ra file để đảm bảo không mất dữ liệu.', 'info');
                 }
             }
-        }
     }
     
     // Save the current song
@@ -2382,13 +2382,34 @@ service cloud.firestore {
     
     // Create a new song
     function createNewSong() {
-        console.log("Creating new song...");
+        console.log("=== CREATING NEW SONG ===");
+        console.log("Current user:", currentUser?.email);
         console.log("Current user role:", currentUserRole);
         console.log("Can save to server:", window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole));
+        console.log("Firebase app available:", !!window.firebaseApp);
         
-        // Generate a unique ID (temporary if user can save to server)
+        // Check current save mode preference
+        const currentSaveMode = getCurrentSaveMode();
+        console.log("Current save mode:", currentSaveMode);
+        console.log("Forced save mode:", forcedSaveMode);
+        
+        // Determine ID type based on save mode preference, not just permissions
+        let songId;
+        let shouldSaveImmediately = false;
+        
         const canUseServer = window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole);
-        const songId = canUseServer ? 'temp_' + Date.now() : 'song_' + Date.now();
+        
+        if (canUseServer && currentSaveMode === 'server' && forcedSaveMode === 'server') {
+            // User has permissions AND wants to use server mode
+            songId = 'temp_' + Date.now();
+            shouldSaveImmediately = false; // Will save when user clicks Save
+            console.log("Creating temporary song for Firebase (user chose server mode)");
+        } else {
+            // User wants local storage OR doesn't have server permissions
+            songId = 'song_' + Date.now();
+            shouldSaveImmediately = true; // Save immediately to localStorage
+            console.log("Creating local song for localStorage");
+        }
         
         console.log("Generated song ID:", songId);
         
@@ -2404,10 +2425,12 @@ service cloud.firestore {
         songs.push(newSong);
         console.log("Added new song to array, total songs:", songs.length);
         
-        // If not using server, save immediately to localStorage
-        if (!canUseServer) {
+        // Save immediately if using localStorage
+        if (shouldSaveImmediately) {
             console.log("Saving to localStorage immediately");
+            console.log("Songs array before saveSongs:", songs.length);
             saveSongs();
+            console.log("saveSongs() completed");
         }
         
         updateSongList();
@@ -2430,6 +2453,15 @@ service cloud.firestore {
         if (!song) {
             console.error("Song not found:", songId);
             showErrorMessage('Không tìm thấy bài hát!');
+            hideLoadingIndicator(loadingIndicator);
+            return;
+        }
+        
+        // Check if user has permission to edit this song
+        const storageInfo = getSongStorageInfo(song);
+        if (storageInfo.type === 'server-readonly') {
+            console.log("User doesn't have permission to edit this Firebase song");
+            showNotification('Bạn chỉ có thể xem bài hát này, không thể chỉnh sửa!', 'warning');
             hideLoadingIndicator(loadingIndicator);
             return;
         }
@@ -3130,8 +3162,15 @@ service cloud.firestore {
 
     // Get song storage information
     function getSongStorageInfo(song) {
+        console.log(`[getSongStorageInfo] Analyzing song: ${song.name} (${song.id})`);
+        console.log(`[getSongStorageInfo] - Has userId: ${!!song.userId}`);
+        console.log(`[getSongStorageInfo] - Current user: ${currentUser?.email || 'none'}`);
+        console.log(`[getSongStorageInfo] - Current user role: ${currentUserRole}`);
+        console.log(`[getSongStorageInfo] - Can use server: ${currentUser && window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole)}`);
+        
         // Check if it's a temporary song (not yet saved to server)
         if (song.id.startsWith('temp_')) {
+            console.log(`[getSongStorageInfo] → TEMPORARY (temp_ prefix)`);
             return {
                 icon: '⚠️',
                 label: 'Chưa lưu',
@@ -3143,27 +3182,34 @@ service cloud.firestore {
         // Check if user can save to server (has admin/moderator permissions)
         const canUseServer = currentUser && window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole);
         
-        // If user has server permissions and song has userId (from Firebase)
-        if (canUseServer && song.userId) {
-            return {
-                icon: '☁️',
-                label: 'Firebase',
-                tooltip: 'Bài hát được lưu trên Firebase Cloud',
-                type: 'server'
-            };
-        }
-        
-        // If song has been loaded from Firebase but user doesn't have server permissions
-        if (song.userId && !canUseServer) {
-            return {
-                icon: '🌐',
-                label: 'Cloud (View)',
-                tooltip: 'Bài hát từ Cloud - bạn chỉ có thể xem',
-                type: 'server-readonly'
-            };
+        // If song has userId (from Firebase)
+        if (song.userId) {
+            // Check if user owns this song or is admin
+            const isOwner = currentUser && song.userId === currentUser.uid;
+            const isAdmin = currentUserRole === 'admin';
+            
+            if (canUseServer && (isOwner || isAdmin)) {
+                console.log(`[getSongStorageInfo] → SERVER (Firebase song - can edit)`);
+                return {
+                    icon: '☁️',
+                    label: 'Firebase',
+                    tooltip: 'Bài hát Firebase - có thể chỉnh sửa',
+                    type: 'server'
+                };
+            } else {
+                console.log(`[getSongStorageInfo] → SERVER-READONLY (Firebase song - view only)`);
+                return {
+                    icon: '🌐',
+                    label: 'Firebase (View)',
+                    tooltip: 'Bài hát Firebase - chỉ xem được',
+                    type: 'server-readonly'
+                };
+            }
         }
         
         // Default case - local storage
+        // This includes songs with IDs like 'song_' that are created locally
+        console.log(`[getSongStorageInfo] → LOCAL (default case)`);
         return {
             icon: '💾',
             label: 'Local',
@@ -3320,9 +3366,9 @@ service cloud.firestore {
                             <span class="storage-label">${storageInfo.label}</span>
                         </div>
                         <div class="song-actions">
-                            <button class="edit-song-btn">Edit</button>
+                            ${storageInfo.type !== 'server-readonly' ? '<button class="edit-song-btn">Edit</button>' : ''}
                             <button class="play-song-btn">Play</button>
-                            ${song.id !== 'default-happy-birthday' ? '<button class="delete-song-btn">Delete</button>' : ''}
+                            ${(song.id !== 'default-happy-birthday' && storageInfo.type !== 'server-readonly') ? '<button class="delete-song-btn">Delete</button>' : ''}
                         </div>
                     `;
                     
@@ -3422,8 +3468,10 @@ service cloud.firestore {
                 }
             }
             
-            // Thêm các sự kiện cho các nút
-            addSongItemEventListeners();
+            // Thêm các sự kiện cho các nút với delay để đảm bảo DOM đã render
+            setTimeout(() => {
+                addSongItemEventListeners();
+            }, 100);
             
             // Hiển thị thống kê storage
             displayStorageStats();
@@ -3458,8 +3506,12 @@ service cloud.firestore {
     
     // Add event listeners to song items
     function addSongItemEventListeners() {
+        console.log("=== ADDING SONG ITEM EVENT LISTENERS ===");
+        
         // Edit song buttons
-        document.querySelectorAll('.edit-song-btn').forEach(btn => {
+        const editButtons = document.querySelectorAll('.edit-song-btn');
+        console.log(`Found ${editButtons.length} edit buttons`);
+        editButtons.forEach(btn => {
             btn.addEventListener('click', function() {
                 const songId = this.closest('.song-item').getAttribute('data-song-id');
                 editSong(songId);
@@ -3467,7 +3519,9 @@ service cloud.firestore {
         });
         
         // Play song buttons
-        document.querySelectorAll('.play-song-btn').forEach(btn => {
+        const playButtons = document.querySelectorAll('.play-song-btn');
+        console.log(`Found ${playButtons.length} play buttons`);
+        playButtons.forEach(btn => {
             btn.addEventListener('click', function() {
                 const songId = this.closest('.song-item').getAttribute('data-song-id');
                 playSong(songId);
@@ -3475,7 +3529,9 @@ service cloud.firestore {
         });
         
         // Delete song buttons
-        document.querySelectorAll('.delete-song-btn').forEach(btn => {
+        const deleteButtons = document.querySelectorAll('.delete-song-btn');
+        console.log(`Found ${deleteButtons.length} delete buttons`);
+        deleteButtons.forEach(btn => {
             btn.addEventListener('click', function() {
                 console.log("Delete button clicked");
                 const songItem = this.closest('.song-item');
@@ -3565,6 +3621,8 @@ service cloud.firestore {
                 songItem.appendChild(confirmDelete);
             });
         });
+        
+        console.log("=== SONG ITEM EVENT LISTENERS ADDED SUCCESSFULLY ===");
     }
     
     // Create piano keys in the editor
@@ -3872,10 +3930,9 @@ service cloud.firestore {
                 return 'local';
             }
         } else {
-            // Auto-detect mode based on user permissions
-            const autoMode = (window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole)) ? 'server' : 'local';
-            console.log("- Returning '" + autoMode + "' (auto-detect mode)");
-            return autoMode;
+            // Default to local if somehow forcedSaveMode is not set
+            console.log("- Returning 'local' (default fallback)");
+            return 'local';
         }
     }
     
@@ -4249,12 +4306,23 @@ service cloud.firestore {
         // Hiển thị thông báo đang xóa
         showNotification('Đang xóa bài hát...', 'info');
         
-        // Check if user can save to server (admin/moderator with Firebase)
-        if (currentUser && window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole)) {
-            // Delete from Firebase
+        // Tìm bài hát để xác định storage type
+        const songToDelete = songs.find(s => s.id === songId);
+        if (!songToDelete) {
+            showNotification('Không tìm thấy bài hát để xóa', 'error');
+            return;
+        }
+        
+        // Xác định storage type của bài hát
+        const storageInfo = getSongStorageInfo(songToDelete);
+        console.log(`Deleting song ${songId} with storage type: ${storageInfo.type}`);
+        
+        // Xóa theo storage type
+        if (storageInfo.type === 'server' || storageInfo.type === 'server-readonly') {
+            // Bài hát từ Firebase - cần quyền admin hoặc là chủ sở hữu
             deleteFromFirebase();
         } else {
-            // Xóa từ localStorage
+            // Bài hát local hoặc temporary - xóa từ localStorage
             deleteFromLocalStorage();
         }
         
@@ -4264,9 +4332,10 @@ service cloud.firestore {
                 console.log("Deleting song from Firebase:", songId);
                 
                 // Check permissions - only owner or admin can delete
-                const songToDelete = songs.find(s => s.id === songId);
-                if (songToDelete && songToDelete.userId !== currentUser.uid && currentUserRole !== 'admin') {
-                    throw new Error("You don't have permission to delete this song");
+                if (songToDelete.userId !== currentUser.uid && currentUserRole !== 'admin') {
+                    console.log("No permission to delete from Firebase, falling back to localStorage");
+                    deleteFromLocalStorage();
+                    return;
                 }
                 
                 // Delete from Firebase
@@ -4317,7 +4386,7 @@ service cloud.firestore {
                 // Log chi tiết
                 console.log(`Đã xóa bài hát "${songName}" từ localStorage. Còn lại ${songs.length}/${originalLength} bài hát.`);
                 
-                // Lưu thay đổi vào localStorage ngay lập tức
+                // Lưu thay đổi vào localStorage ngay lập tức (chỉ lưu bài hát local)
                 saveSongs();
                 
                 // Clear editor if the current song was deleted
@@ -4917,19 +4986,24 @@ service cloud.firestore {
         showNotification('Đang tải danh sách bài hát...', 'info');
         
         try {
-            if (!currentUser) {
-                throw new Error("User not authenticated");
+            // FIRST: Always load localStorage songs to ensure they're not lost
+            console.log("[loadSongs] Step 1: Loading localStorage songs first...");
+            await loadSongsFromLocalStorage();
+            console.log(`[loadSongs] Loaded ${songs.length} songs from localStorage`);
+            
+            // Check if Firebase is available
+            if (!window.firebaseApp || !window.firebaseApp.db) {
+                console.log("[loadSongs] Firebase not available - window.firebaseApp:", !!window.firebaseApp, "db:", !!window.firebaseApp?.db);
+                throw new Error("Firebase not available");
             }
             
-            // Admin can see all songs, others see only their own
-            let songsQuery;
-            if (currentUserRole === 'admin') {
-                songsQuery = db.collection('songs').orderBy('createdAt', 'desc');
-            } else {
-                songsQuery = db.collection('songs')
-                    .where('userId', '==', currentUser.uid)
-                    .orderBy('createdAt', 'desc');
-            }
+            // SECOND: Load Firebase songs and merge
+            console.log("[loadSongs] Step 2: Loading Firebase songs...");
+            console.log("[loadSongs] Current user:", currentUser?.email || "anonymous");
+            console.log("[loadSongs] Firebase db available:", !!window.firebaseApp.db);
+            
+            const songsQuery = window.firebaseApp.db.collection('songs'); // Load all songs
+            console.log("[loadSongs] Created query, attempting to fetch...");
             
             const snapshot = await songsQuery.get();
             const firebaseSongs = [];
@@ -4942,17 +5016,69 @@ service cloud.firestore {
                 });
             });
             
-            songs = firebaseSongs;
+            console.log(`[loadSongs] Before merge - localStorage songs: ${songs.length}, Firebase songs: ${firebaseSongs.length}`);
+            
+            // Merge Firebase songs with existing localStorage songs
+            // Keep all localStorage songs (they don't have userId from Firebase)
+            const localSongs = songs.filter(song => {
+                // Keep songs that don't have userId (local songs) or have local ID patterns
+                const isLocal = !song.userId || song.id.startsWith('temp_') || song.id.startsWith('song_');
+                console.log(`[loadSongs] Song "${song.name}" (${song.id}) - isLocal: ${isLocal}, hasUserId: ${!!song.userId}`);
+                return isLocal;
+            });
+            
+            console.log(`[loadSongs] Filtered localStorage songs: ${localSongs.length}`);
+            
+            // Combine Firebase songs with localStorage songs
+            const allSongs = [...firebaseSongs, ...localSongs];
+            console.log(`[loadSongs] Combined songs before cleanup: ${allSongs.length}`);
+            
+            songs = cleanupDuplicates(allSongs);
+            console.log(`[loadSongs] Final songs after cleanup: ${songs.length}`);
+            
             updateSongList();
-            console.log(`Loaded ${songs.length} songs from Firebase`);
-            showNotification(`Đã tải ${songs.length} bài hát từ Firebase`, 'success');
+            console.log(`Loaded ${firebaseSongs.length} songs from Firebase, merged with ${localSongs.length} localStorage songs. Total: ${songs.length}`);
+            showNotification(`Đã tải ${firebaseSongs.length} bài hát từ Firebase + ${localSongs.length} bài hát local`, 'success');
             
         } catch (error) {
             console.error("Error loading songs from Firebase:", error);
-            handleApiError(error, 'tải danh sách bài hát từ Firebase');
+            console.error("Error code:", error.code);
+            console.error("Error message:", error.message);
+            
+            // Show specific error messages
+            if (error.code === 'permission-denied') {
+                console.log("[loadSongs] Permission denied - Firestore rules may not allow anonymous read");
+                console.log("[loadSongs] 💡 Solution: Update Firestore Security Rules to allow anonymous read");
+                console.log("[loadSongs] 📖 See FIREBASE_SETUP.md for detailed instructions");
+                
+                showNotification('⚠️ Cần cấu hình Firebase Security Rules để xem bài hát', 'warning');
+                
+                // Show detailed instructions in console
+                console.log(`
+🔥 FIREBASE SETUP REQUIRED:
+1. Go to Firebase Console → Firestore Database → Rules
+2. Add this rule for songs collection:
+   match /songs/{songId} {
+     allow read: if true;  // Allow anonymous read
+     allow write: if request.auth != null;
+   }
+3. See FIREBASE_SETUP.md for complete rules
+                `);
+                
+                updateConnectionStatus('❌ Firebase: Cần cấu hình quyền truy cập');
+            } else if (error.message === "Firebase not available") {
+                console.log("[loadSongs] Firebase not initialized properly");
+                showNotification('Firebase chưa được khởi tạo', 'warning');
+                updateConnectionStatus('❌ Firebase: Chưa khởi tạo');
+            } else {
+                console.log("[loadSongs] Unknown Firebase error");
+                handleApiError(error, 'tải danh sách bài hát từ Firebase');
+                updateConnectionStatus('❌ Firebase: Lỗi không xác định');
+            }
             
             // Fall back to localStorage
-            loadSongsFromLocalStorage();
+            console.log("[loadSongs] Falling back to localStorage due to Firebase error");
+            return loadSongsFromLocalStorage();
         }
     }
     
@@ -5047,10 +5173,47 @@ service cloud.firestore {
     // Initialize auto-save
     setupAutoSave();
     
-    // Load songs initially (will load from localStorage if not authenticated)
-    setTimeout(() => {
-        loadSongsWrapper();
-    }, 500);
+
+
+    // Create sample songs for testing if none exist (DISABLED for now)
+    function createSampleSongs() {
+        // Disabled to avoid conflicts during debugging
+        console.log("Sample song creation disabled for debugging");
+        return;
+        
+        if (songs.length === 0) {
+            console.log("Creating sample songs for testing...");
+            const sampleSongs = [
+                {
+                    id: 'sample-song-1',
+                    name: 'Sample Song 1',
+                    bpm: 120,
+                    notes: [
+                        { note: 'c4', position: 0, duration: 1 },
+                        { note: 'd4', position: 1, duration: 1 },
+                        { note: 'e4', position: 2, duration: 1 }
+                    ]
+                },
+                {
+                    id: 'sample-song-2',
+                    name: 'Sample Song 2',
+                    bpm: 140,
+                    notes: [
+                        { note: 'f4', position: 0, duration: 0.5 },
+                        { note: 'g4', position: 0.5, duration: 0.5 },
+                        { note: 'a4', position: 1, duration: 1 }
+                    ]
+                }
+            ];
+            
+            songs.push(...sampleSongs);
+            saveSongs();
+            console.log("Sample songs created:", songs);
+        }
+    }
+
+    // Songs are now loaded immediately when Firebase is initialized
+    // No need to load again here
 
     function initializeUIElements() {
         // Log all required elements for debugging
