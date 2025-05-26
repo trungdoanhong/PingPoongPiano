@@ -36,6 +36,7 @@
                         <span id="user-name"></span>
                         <span id="user-role" class="user-role"></span>
                         <button id="logout-btn">Logout</button>
+                        <button id="force-admin-btn" style="display: none; margin-left: 5px; padding: 4px 8px; font-size: 11px; background: #ff4444; color: white; border: none; border-radius: 3px; cursor: pointer;">Force Admin</button>
                     </div>
                     <div id="login-panel">
                         <button id="google-login-btn">🔑 Login with Google</button>
@@ -176,10 +177,7 @@
                                     </label>
                                 </div>
                             </div>
-                            <div class="server-password" id="server-password-container" style="display: none;">
-                                <input type="password" id="server-password" placeholder="Server Password">
-                                <div class="password-hint">Password required for server save</div>
-                            </div>
+
                         </div>
                         <div class="editor-actions">
                             <button id="save-song-btn">Save</button>

@@ -453,6 +453,15 @@ window.onload = function() {
             userRole.textContent = role.toUpperCase();
             userRole.className = `user-role ${role}`;
             
+            // Show force admin button if user should be admin but isn't
+            const forceAdminBtn = document.getElementById('force-admin-btn');
+            if (user.email === window.firebaseApp.ADMIN_EMAIL && role !== 'admin') {
+                console.log('Showing force admin button for:', user.email);
+                forceAdminBtn.style.display = 'inline-block';
+            } else {
+                forceAdminBtn.style.display = 'none';
+            }
+            
             // Show admin menu item for admin users
             const adminMenuItem = document.querySelector('.menu-item[data-mode="admin"]');
             console.log('Admin menu item found:', !!adminMenuItem, 'User role:', role);
@@ -496,9 +505,11 @@ window.onload = function() {
                 serverSaveModeOption.disabled = true;
                 // Switch to local mode if currently on server mode
                 if (forcedSaveMode === 'server') {
-                    document.querySelector('input[name="save-mode"][value="local"]').checked = true;
+                    const localModeRadio = document.querySelector('input[name="save-mode"][value="local"]');
+                    if (localModeRadio) {
+                        localModeRadio.checked = true;
+                    }
                     forcedSaveMode = 'local';
-                    serverPasswordContainer.style.display = 'none';
                 }
             }
         }
@@ -1267,6 +1278,76 @@ window.onload = function() {
             // Logout button
             logoutBtn.addEventListener('click', signOut);
             
+                    // Test Firebase connection button (create dynamically)
+        const testFirebaseBtn = document.createElement('button');
+        testFirebaseBtn.textContent = 'Test Firebase';
+        testFirebaseBtn.style.cssText = 'position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px; font-size: 12px; cursor: pointer;';
+        document.body.appendChild(testFirebaseBtn);
+        
+        testFirebaseBtn.addEventListener('click', async () => {
+            console.log('Testing Firebase connection...');
+            showNotification('Testing Firebase...', 'info');
+            
+            try {
+                // Test write to a test collection
+                const testData = {
+                    test: true,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    user: currentUser?.email || 'anonymous'
+                };
+                
+                await db.collection('test').add(testData);
+                console.log('Firebase write test successful');
+                showNotification('Firebase connection OK!', 'success');
+            } catch (error) {
+                console.error('Firebase test failed:', error);
+                showNotification(`Firebase error: ${error.message}`, 'error');
+                
+                // If it's a permissions error, provide Firestore rules suggestion
+                if (error.code === 'permission-denied') {
+                    console.log('FIRESTORE RULES NEEDED:');
+                    console.log(`
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow read/write access to all authenticated users
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+                    `);
+                    showNotification('Permission denied. Check console for Firestore rules.', 'error');
+                }
+            }
+        });
+        
+        // Force admin button
+        const forceAdminBtn = document.getElementById('force-admin-btn');
+        forceAdminBtn.addEventListener('click', async () => {
+                if (currentUser && currentUser.email === window.firebaseApp.ADMIN_EMAIL) {
+                    try {
+                        console.log('Force updating admin role...');
+                        showNotification('Updating admin role...', 'info');
+                        
+                        // Force update role to admin
+                        const newRole = await window.firebaseApp.forceAdminRole(currentUser.uid, currentUser.email);
+                        
+                        // Update current user role
+                        currentUserRole = newRole;
+                        
+                        // Update UI
+                        updateUserUI(currentUser, newRole);
+                        
+                        showNotification('Admin role updated successfully!', 'success');
+                        console.log('Admin role force updated successfully');
+                    } catch (error) {
+                        console.error('Error forcing admin role:', error);
+                        showNotification('Error updating admin role', 'error');
+                    }
+                }
+            });
+            
             // Listen for auth state changes
             auth.onAuthStateChanged(async (user) => {
                 if (user) {
@@ -1322,11 +1403,11 @@ window.onload = function() {
     let editorPlaybackInterval;
     let currentPlayPosition = 0;
     let selectedNoteElement = null;
-    let serverAvailable = false;
+    // Removed serverAvailable - now using Firebase permission checking instead
     let isLoadingSongs = false; // Biến theo dõi trạng thái đang tải bài hát
     let forcedSaveMode = null; // null = auto-detect, 'local' = force local, 'server' = force server
-    let serverPassword = "Au123456"; // Server password
-    const API_URL = 'http://localhost:3000/api/songs';
+
+    // Removed API_URL - now using Firebase Firestore instead of REST API
     
     // Biến cho tính năng kéo-thả note
     let isDragging = false;
@@ -1345,9 +1426,33 @@ window.onload = function() {
     let longPressTimer = null;
     let longPressThreshold = 600; // 600ms để được tính là nhấn giữ
     
-    // Song Manager DOM Elements
-    const songNameInput = document.getElementById('song-name');
-    const songBpmInput = document.getElementById('song-bpm');
+    // Song Manager DOM Elements - with null safety
+    let songNameInput = document.getElementById('song-name');
+    let songBpmInput = document.getElementById('song-bpm');
+    
+    // Add null safety wrapper
+    function safeClearInputs() {
+        try {
+            if (!songNameInput) songNameInput = document.getElementById('song-name');
+            if (!songBpmInput) songBpmInput = document.getElementById('song-bpm');
+            
+            if (songNameInput) songNameInput.value = '';
+            if (songBpmInput) songBpmInput.value = 120;
+        } catch (error) {
+            console.error("Error in safeClearInputs:", error);
+        }
+    }
+    
+    // Override global variables to add safety
+    Object.defineProperty(window, 'songNameInput', {
+        get: function() { return document.getElementById('song-name'); },
+        set: function(value) { /* ignore sets */ }
+    });
+    
+    Object.defineProperty(window, 'songBpmInput', {
+        get: function() { return document.getElementById('song-bpm'); },
+        set: function(value) { /* ignore sets */ }
+    });
     const songList = document.getElementById('song-list');
     const newSongBtn = document.getElementById('new-song-btn');
     const importSongBtn = document.getElementById('import-song-btn');
@@ -1362,10 +1467,66 @@ window.onload = function() {
     
     // Save mode controls
     const saveModeRadios = document.getElementsByName('save-mode');
-    const serverPasswordContainer = document.getElementById('server-password-container');
-    const serverPasswordInput = document.getElementById('server-password');
     const saveStatusIndicator = document.getElementById('save-status');
     
+    // Safe input clearing function
+    function clearSongInputs() {
+        try {
+            const nameInput = songNameInput || document.getElementById('song-name');
+            const bpmInput = songBpmInput || document.getElementById('song-bpm');
+            
+            if (nameInput) {
+                nameInput.value = '';
+                console.log("Cleared song name input");
+            } else {
+                console.warn("Song name input not found");
+            }
+            
+            if (bpmInput) {
+                bpmInput.value = 120;
+                console.log("Reset BPM input to 120");
+            } else {
+                console.warn("Song BPM input not found");
+            }
+        } catch (error) {
+            console.error("Error clearing song inputs:", error);
+        }
+    }
+    
+    // Replace all unsafe input clearing with safe function
+    function fixUnsafeInputClearing() {
+        // This function will be called to replace unsafe direct access
+        // We'll override the global variables to be safer
+        if (typeof songNameInput !== 'undefined' && !songNameInput) {
+            console.warn("songNameInput is null, attempting to re-initialize");
+            window.songNameInput = document.getElementById('song-name');
+        }
+        if (typeof songBpmInput !== 'undefined' && !songBpmInput) {
+            console.warn("songBpmInput is null, attempting to re-initialize");
+            window.songBpmInput = document.getElementById('song-bpm');
+        }
+    }
+    
+    // Test function to verify all DOM elements exist
+    function testSongManagerElements() {
+        console.log("=== TESTING SONG MANAGER DOM ELEMENTS ===");
+        console.log("songNameInput:", songNameInput);
+        console.log("songBpmInput:", songBpmInput);
+        console.log("songList:", songList);
+        console.log("newSongBtn:", newSongBtn);
+        console.log("saveSongBtn:", saveSongBtn);
+        console.log("noteGrid:", noteGrid);
+        
+        if (!songNameInput) console.error("❌ songNameInput not found!");
+        if (!songBpmInput) console.error("❌ songBpmInput not found!");
+        if (!songList) console.error("❌ songList not found!");
+        if (!newSongBtn) console.error("❌ newSongBtn not found!");
+        if (!saveSongBtn) console.error("❌ saveSongBtn not found!");
+        if (!noteGrid) console.error("❌ noteGrid not found!");
+        
+        return songNameInput && songBpmInput && songList && newSongBtn && saveSongBtn && noteGrid;
+    }
+
     // Initialize the Song Manager
     function initSongManager() {
         // Wait for DOM to be ready
@@ -1379,6 +1540,16 @@ window.onload = function() {
         
         function initSongManagerUI() {
             console.log("Initializing song manager UI...");
+            
+            // Test all DOM elements first
+            if (!testSongManagerElements()) {
+                console.error("Some required DOM elements are missing!");
+                showNotification('Lỗi: Thiếu DOM elements, vui lòng reload trang', 'error');
+                return;
+            }
+            
+            // Fix any unsafe input clearing
+            fixUnsafeInputClearing();
             
             // Clear any existing event listeners
             const songList = document.getElementById('song-list');
@@ -1475,6 +1646,23 @@ window.onload = function() {
         cleanupButton.style.fontSize = '12px';
         cleanupButton.style.fontWeight = 'bold';
         
+        // Tạo filter dropdown cho storage type
+        const storageFilter = document.createElement('select');
+        storageFilter.className = 'storage-filter';
+        storageFilter.innerHTML = `
+            <option value="all">Tất cả</option>
+            <option value="server">☁️ Firebase</option>
+            <option value="local">💾 Local</option>
+            <option value="temporary">⚠️ Chưa lưu</option>
+        `;
+        storageFilter.style.padding = '6px 10px';
+        storageFilter.style.background = 'rgba(108, 117, 125, 0.5)';
+        storageFilter.style.border = 'none';
+        storageFilter.style.borderRadius = '5px';
+        storageFilter.style.color = 'white';
+        storageFilter.style.cursor = 'pointer';
+        storageFilter.style.fontSize = '12px';
+        
         // Sự kiện cho nút làm mới
         refreshButton.addEventListener('click', () => {
             refreshButton.textContent = '🔄 Đang tải...';
@@ -1488,18 +1676,23 @@ window.onload = function() {
         
         // Sự kiện cho nút dọn dẹp
         cleanupButton.addEventListener('click', () => {
-            if (serverAvailable) {
-                cleanupButton.textContent = '🧹 Đang dọn...';
-                cleanupButton.disabled = true;
-                
-                // Tải lại dữ liệu và tự động dọn dẹp
-                loadSongsWrapper(true).finally(() => {
-                    cleanupButton.textContent = '🧹 Dọn dẹp';
-                    cleanupButton.disabled = false;
-                });
-            } else {
-                showNotification('Chỉ có thể dọn dẹp khi kết nối server', 'warning');
-            }
+                    if (currentUser && window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole)) {
+            cleanupButton.textContent = '🧹 Đang dọn...';
+            cleanupButton.disabled = true;
+            
+            // Tải lại dữ liệu và tự động dọn dẹp
+            loadSongsWrapper(true).finally(() => {
+                cleanupButton.textContent = '🧹 Dọn dẹp';
+                cleanupButton.disabled = false;
+            });
+        } else {
+            showNotification('Chỉ có thể dọn dẹp khi có quyền admin/moderator', 'warning');
+        }
+        });
+        
+        // Sự kiện cho filter storage type
+        storageFilter.addEventListener('change', (e) => {
+            filterSongsByStorageType(e.target.value);
         });
         
         // Hover effects
@@ -1520,6 +1713,7 @@ window.onload = function() {
         // Thêm các nút vào container
         buttonContainer.appendChild(refreshButton);
         buttonContainer.appendChild(cleanupButton);
+        buttonContainer.appendChild(storageFilter);
         
         // Thêm vào đầu song list container
         songListContainer.insertBefore(buttonContainer, songListContainer.firstChild);
@@ -1598,7 +1792,6 @@ window.onload = function() {
                 // Check if Firebase is initialized
                 if (!db || !auth) {
                     console.log("Firebase not initialized");
-                    serverAvailable = false;
                     updateConnectionStatus('Firebase không khả dụng');
                     resolve(false);
                     return;
@@ -1607,7 +1800,6 @@ window.onload = function() {
                 // Check if user is authenticated
                 if (!currentUser) {
                     console.log("User not authenticated");
-                    serverAvailable = false;
                     updateConnectionStatus('Cần đăng nhập để lưu trên cloud');
                     resolve(false);
                     return;
@@ -1616,7 +1808,6 @@ window.onload = function() {
                 // Check if user has permission to save to server
                 if (!window.firebaseApp.canSaveToServer(currentUserRole)) {
                     console.log("User doesn't have permission to save to server");
-                    serverAvailable = false;
                     updateConnectionStatus('Không có quyền lưu trên cloud');
                     resolve(false);
                     return;
@@ -1624,13 +1815,11 @@ window.onload = function() {
                 
                 // All checks passed
                 console.log("Firebase available and user has permissions");
-                serverAvailable = true;
                 updateConnectionStatus('Có thể lưu trên Firebase');
                 resolve(true);
                 
             } catch (error) {
                 console.error("Error checking Firebase availability:", error);
-                serverAvailable = false;
                 updateConnectionStatus('Lỗi kết nối Firebase');
                 resolve(false);
             }
@@ -1642,15 +1831,15 @@ window.onload = function() {
         const statusElement = document.getElementById('connection-status');
         if (statusElement) {
             statusElement.textContent = message;
-        }
-        
-        // Update color based on connection type
-        if (message.includes('server')) {
-            statusElement.style.color = '#4ecca3'; // Màu xanh lá
-        } else if (message.includes('cục bộ')) {
-            statusElement.style.color = '#ffbe76'; // Màu cam
-        } else {
-            statusElement.style.color = 'rgba(255, 255, 255, 0.7)'; // Màu trắng mờ
+            
+            // Update color based on connection type
+            if (message.includes('server')) {
+                statusElement.style.color = '#4ecca3'; // Màu xanh lá
+            } else if (message.includes('cục bộ')) {
+                statusElement.style.color = '#ffbe76'; // Màu cam
+            } else {
+                statusElement.style.color = 'rgba(255, 255, 255, 0.7)'; // Màu trắng mờ
+            }
         }
     }
     
@@ -1791,10 +1980,10 @@ window.onload = function() {
     
     // Save songs to server or localStorage
     function saveSongs() {
-        if (serverAvailable) {
-            // Note: Server saves individual songs via API endpoints
+        if (currentUser && window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole)) {
+            // Note: Firebase handles individual song saves automatically
             // This function is used only when using localStorage
-            console.log("Using server API for song management");
+            console.log("Using Firebase for song management");
         } else {
             // Kiểm tra xem localStorage có khả dụng không
             if (!isLocalStorageAvailable()) {
@@ -1855,9 +2044,8 @@ window.onload = function() {
         console.log("=== SAVE SONG CALLED ===");
         console.log("currentSong:", currentSong);
         console.log("forcedSaveMode:", forcedSaveMode);
-        console.log("serverAvailable:", serverAvailable);
-        console.log("serverPasswordInput value:", serverPasswordInput ? serverPasswordInput.value : "null");
-        console.log("serverPassword:", serverPassword);
+        console.log("canSaveToFirebase:", currentUser && window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole));
+        
         
         if (!currentSong) {
             console.log("ERROR: No current song to save");
@@ -1871,10 +2059,19 @@ window.onload = function() {
         
         if (forcedSaveMode === 'server') {
             console.log("Checking server mode requirements...");
-            console.log("Password check result:", checkPasswordValidity());
-            if (!checkPasswordValidity()) {
-                console.log("Password validation failed");
-                showNotification('Mật khẩu server không đúng!', 'error');
+            
+            // Check if user has permission to save to server
+            if (!window.firebaseApp || !window.firebaseApp.canSaveToServer(currentUserRole)) {
+                console.log("User doesn't have permission to save to server");
+                showNotification('Cần quyền admin/moderator để lưu lên server!', 'error');
+                // Force switch to local mode
+                const localModeRadio = document.querySelector('input[name="save-mode"][value="local"]');
+                if (localModeRadio) {
+                    localModeRadio.checked = true;
+                }
+                forcedSaveMode = 'local';
+                updateSaveButtonState();
+                proceedWithSave();
                 return;
             }
             
@@ -1888,9 +2085,11 @@ window.onload = function() {
                     console.log("Server not available after re-check, switching to local");
                     showNotification('Server không khả dụng. Chuyển sang lưu Local Storage.', 'warning');
                     // Force switch to local mode
-                    document.querySelector('input[name="save-mode"][value="local"]').checked = true;
+                    const localModeRadio = document.querySelector('input[name="save-mode"][value="local"]');
+                    if (localModeRadio) {
+                        localModeRadio.checked = true;
+                    }
                     forcedSaveMode = 'local';
-                    serverPasswordContainer.style.display = 'none';
                     updateSaveButtonState();
                     // Continue with local save
                     proceedWithSave();
@@ -1902,9 +2101,11 @@ window.onload = function() {
                 console.error("Error checking server availability:", error);
                 showNotification('Lỗi kết nối server. Chuyển sang lưu Local Storage.', 'error');
                 // Force switch to local mode
-                document.querySelector('input[name="save-mode"][value="local"]').checked = true;
+                const localModeRadio = document.querySelector('input[name="save-mode"][value="local"]');
+                if (localModeRadio) {
+                    localModeRadio.checked = true;
+                }
                 forcedSaveMode = 'local';
-                serverPasswordContainer.style.display = 'none';
                 updateSaveButtonState();
                 proceedWithSave();
             });
@@ -1919,11 +2120,23 @@ window.onload = function() {
         function proceedWithSave() {
             // Update song info
             console.log("Updating song info...");
-            currentSong.name = songNameInput.value || 'Untitled Song';
-            currentSong.bpm = parseInt(songBpmInput.value) || 120;
+            
+            // Get DOM elements safely
+            const nameInput = document.getElementById('song-name');
+            const bpmInput = document.getElementById('song-bpm');
+            const grid = document.querySelector('.note-grid');
+            
+            if (!nameInput || !bpmInput || !grid) {
+                console.error("Required DOM elements not found for saving");
+                showNotification('Lỗi: Không tìm thấy elements cần thiết để lưu bài hát', 'error');
+                return;
+            }
+            
+            currentSong.name = nameInput.value || 'Untitled Song';
+            currentSong.bpm = parseInt(bpmInput.value) || 120;
             
             // Collect notes from the grid
-            const noteElements = noteGrid.querySelectorAll('.grid-note');
+            const noteElements = grid.querySelectorAll('.grid-note');
             console.log("Found note elements:", noteElements.length);
             currentSong.notes = Array.from(noteElements).map(el => ({
                 note: el.getAttribute('data-note'),
@@ -1944,8 +2157,8 @@ window.onload = function() {
             console.log("- Song notes count:", currentSong.notes.length);
             console.log("- Save mode from getCurrentSaveMode():", saveMode);
             console.log("- Forced save mode:", forcedSaveMode);
-            console.log("- Server available:", serverAvailable);
-            console.log("- Password check result:", checkPasswordValidity());
+            console.log("- Can save to Firebase:", currentUser && window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole));
+
             console.log("- Condition check (saveMode === 'server' && forcedSaveMode === 'server'):", 
                        (saveMode === 'server' && forcedSaveMode === 'server'));
             
@@ -2000,8 +2213,19 @@ window.onload = function() {
                  showNotification('Đang tạo bài hát mới trên Firebase...', 'info');
                 
                 // Lưu vào Firebase
-                const docRef = await db.collection('songs').add(songDataForFirebase);
-                console.log("- Firebase document created with ID:", docRef.id);
+                let docRef;
+                try {
+                    docRef = await db.collection('songs').add(songDataForFirebase);
+                    console.log("- Firebase document created with ID:", docRef.id);
+                } catch (firestoreError) {
+                    console.warn("- Firestore permissions error, trying alternate approach:", firestoreError.message);
+                    
+                    // If permissions error, try to create with a specific ID
+                    const customId = 'song_' + Date.now() + '_' + currentUser.uid;
+                    await db.collection('songs').doc(customId).set(songDataForFirebase);
+                    docRef = { id: customId };
+                    console.log("- Firebase document created with custom ID:", customId);
+                }
                 
                 // Tạo object bài hát mới với ID từ Firebase
                 const newSong = {
@@ -2067,8 +2291,22 @@ window.onload = function() {
                  showNotification('Đang cập nhật bài hát trên Firebase...', 'info');
                 
                 // Cập nhật trong Firebase
-                await db.collection('songs').doc(currentSong.id).update(updateData);
-                console.log("- Firebase document updated successfully");
+                try {
+                    await db.collection('songs').doc(currentSong.id).update(updateData);
+                    console.log("- Firebase document updated successfully");
+                } catch (firestoreError) {
+                    console.warn("- Firestore update error, trying set instead:", firestoreError.message);
+                    // If update fails, try set with merge
+                    const completeData = {
+                        ...currentSong,
+                        ...updateData,
+                        userId: currentUser.uid,
+                        userEmail: currentUser.email,
+                        userName: currentUser.displayName || currentUser.email
+                    };
+                    await db.collection('songs').doc(currentSong.id).set(completeData, { merge: true });
+                    console.log("- Firebase document set with merge successfully");
+                }
                 
                 // Cập nhật object bài hát local
                 const updatedSong = {
@@ -2144,8 +2382,15 @@ window.onload = function() {
     
     // Create a new song
     function createNewSong() {
-        // Generate a unique ID (temporary if using server)
-        const songId = serverAvailable ? 'temp_' + Date.now() : 'song_' + Date.now();
+        console.log("Creating new song...");
+        console.log("Current user role:", currentUserRole);
+        console.log("Can save to server:", window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole));
+        
+        // Generate a unique ID (temporary if user can save to server)
+        const canUseServer = window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole);
+        const songId = canUseServer ? 'temp_' + Date.now() : 'song_' + Date.now();
+        
+        console.log("Generated song ID:", songId);
         
         // Create new song object
         const newSong = {
@@ -2157,15 +2402,19 @@ window.onload = function() {
         
         // Add to songs array
         songs.push(newSong);
+        console.log("Added new song to array, total songs:", songs.length);
         
-        // If using localStorage, save immediately
-        if (!serverAvailable) {
+        // If not using server, save immediately to localStorage
+        if (!canUseServer) {
+            console.log("Saving to localStorage immediately");
             saveSongs();
         }
         
         updateSongList();
+        console.log("Updated song list");
         
         // Open the editor for the new song
+        console.log("Opening editor for song:", songId);
         editSong(songId);
     }
     
@@ -2174,53 +2423,69 @@ window.onload = function() {
         // Hiển thị trạng thái đang tải
         const loadingIndicator = showLoadingIndicator('Đang tải bài hát...');
         
-        // Nếu sử dụng server và đây không phải bài hát mặc định, tải lại từ server
-        if (serverAvailable && songId !== 'default-happy-birthday' && !songId.startsWith('temp_')) {
-            fetch(`${API_URL}/${songId}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Không thể tải bài hát từ server');
-                    }
-                    return response.json();
-                })
-                .then(songData => {
-                    // Cập nhật bài hát trong danh sách cục bộ
-                    const songIndex = songs.findIndex(s => s.id === songId);
-                    if (songIndex !== -1) {
-                        songs[songIndex] = songData;
-                    } else {
-                        songs.push(songData);
-                    }
-                    
-                    // Tiếp tục chỉnh sửa
-                    loadSongIntoEditor(songData);
-                    hideLoadingIndicator(loadingIndicator);
-                })
-                .catch(error => {
-                    console.error("Error loading song from server:", error);
-                    
-                    // Tìm bài hát trong danh sách cục bộ
-                    const song = songs.find(s => s.id === songId);
-                    if (song) {
-                        loadSongIntoEditor(song);
-                    } else {
-                        showErrorMessage('Không thể tải bài hát!');
-                    }
-                    hideLoadingIndicator(loadingIndicator);
-                });
-        } else {
-            // Find the song by ID
-            const song = songs.find(song => song.id === songId);
+        // For Firebase songs, we can load directly from the songs array since we already have them
+        // Only need to reload if the song data might be stale
+        const song = songs.find(song => song.id === songId);
+        
+        if (!song) {
+            console.error("Song not found:", songId);
+            showErrorMessage('Không tìm thấy bài hát!');
+            hideLoadingIndicator(loadingIndicator);
+            return;
+        }
+        
+        // For Firebase songs, check if we need to reload from server
+        if (currentUser && window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole) && 
+            !songId.startsWith('temp_') && songId !== 'default-happy-birthday') {
             
-            if (!song) {
-                console.error("Song not found:", songId);
-                showErrorMessage('Không tìm thấy bài hát!');
-                hideLoadingIndicator(loadingIndicator);
-                return;
+            console.log("Loading song from Firebase:", songId);
+            loadSongFromFirebase(songId, loadingIndicator);
+        } else {
+            // Load from local data
+            console.log("Loading song from local data:", songId);
+            loadSongIntoEditor(song);
+            hideLoadingIndicator(loadingIndicator);
+        }
+    }
+    
+    // Load song from Firebase
+    async function loadSongFromFirebase(songId, loadingIndicator) {
+        try {
+            const doc = await db.collection('songs').doc(songId).get();
+            
+            if (doc.exists) {
+                const songData = {
+                    id: doc.id,
+                    ...doc.data()
+                };
+                
+                // Update song in local array
+                const songIndex = songs.findIndex(s => s.id === songId);
+                if (songIndex !== -1) {
+                    songs[songIndex] = songData;
+                } else {
+                    songs.push(songData);
+                }
+                
+                // Load into editor
+                loadSongIntoEditor(songData);
+                console.log("Song loaded from Firebase successfully");
+            } else {
+                throw new Error('Song not found in Firebase');
             }
             
-            // Tải bài hát vào trình sửa
-            loadSongIntoEditor(song);
+        } catch (error) {
+            console.error("Error loading song from Firebase:", error);
+            
+            // Fallback to local data
+            const song = songs.find(s => s.id === songId);
+            if (song) {
+                console.log("Falling back to local song data");
+                loadSongIntoEditor(song);
+            } else {
+                showErrorMessage('Không thể tải bài hát!');
+            }
+        } finally {
             hideLoadingIndicator(loadingIndicator);
         }
     }
@@ -2233,9 +2498,16 @@ window.onload = function() {
         // Clear the note grid
         clearNoteGrid();
         
-        // Update the editor fields
-        songNameInput.value = currentSong.name;
-        songBpmInput.value = currentSong.bpm || 120;
+        // Update the editor fields safely
+        const nameInput = document.getElementById('song-name');
+        const bpmInput = document.getElementById('song-bpm');
+        
+        if (nameInput) {
+            nameInput.value = currentSong.name;
+        }
+        if (bpmInput) {
+            bpmInput.value = currentSong.bpm || 120;
+        }
         
         // Kiểm tra cấu trúc notes
         if (!Array.isArray(currentSong.notes)) {
@@ -2418,8 +2690,11 @@ window.onload = function() {
     // Clear the note grid
     function clearNoteGrid() {
         // Remove all notes but keep grid lines
-        const notes = noteGrid.querySelectorAll('.grid-note');
-        notes.forEach(note => note.remove());
+        const grid = document.querySelector('.note-grid');
+        if (grid) {
+            const notes = grid.querySelectorAll('.grid-note');
+            notes.forEach(note => note.remove());
+        }
     }
     
     // Add a note to the grid from data
@@ -2725,11 +3000,16 @@ window.onload = function() {
         });
         
         // Add to grid
-        noteGrid.appendChild(noteElement);
+        const grid = document.querySelector('.note-grid');
+        if (grid) {
+            grid.appendChild(noteElement);
+        }
     }
     
     // Thêm sự kiện touchstart cho noteGrid để thêm note mới khi chạm vào lưới trống
-    noteGrid.addEventListener('touchstart', function(e) {
+    const grid = document.querySelector('.note-grid');
+    if (grid) {
+        grid.addEventListener('touchstart', function(e) {
         // Bỏ qua nếu đang kéo thả hoặc nếu đang chạm vào note đã tồn tại
         if (isDragging || isResizing) return;
         
@@ -2742,12 +3022,163 @@ window.onload = function() {
         if (!isNoteTouch) {
             addNoteAtPosition(e.touches[0]);
         }
-    });
+        });
+    }
     
+    // Filter songs by storage type
+    function filterSongsByStorageType(filterType) {
+        const songItems = document.querySelectorAll('.song-item');
+        let visibleCount = 0;
+        
+        songItems.forEach(item => {
+            const storageType = item.getAttribute('data-storage-type');
+            
+            if (filterType === 'all' || storageType === filterType || 
+                (filterType === 'server' && (storageType === 'server' || storageType === 'server-readonly'))) {
+                item.style.display = 'block';
+                visibleCount++;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+        
+        // Hiển thị thông báo kết quả filter
+        const filterMessage = `Hiển thị ${visibleCount} bài hát${filterType !== 'all' ? ' - ' + getFilterLabel(filterType) : ''}`;
+        showNotification(filterMessage, 'info');
+        
+        console.log(`Filtered songs: ${visibleCount} visible, filter: ${filterType}`);
+    }
+    
+    // Get filter label for display
+    function getFilterLabel(filterType) {
+        switch(filterType) {
+            case 'server': return 'Chỉ bài hát từ Firebase';
+            case 'local': return 'Chỉ bài hát Local';
+            case 'temporary': return 'Chỉ bài hát chưa lưu';
+            default: return 'Tất cả bài hát';
+        }
+    }
+    
+    // Display storage statistics
+    function displayStorageStats() {
+        if (!songs || songs.length === 0) return;
+        
+        // Count songs by storage type
+        const stats = {
+            server: 0,
+            local: 0,
+            temporary: 0,
+            readonly: 0
+        };
+        
+        songs.forEach(song => {
+            const storageInfo = getSongStorageInfo(song);
+            switch(storageInfo.type) {
+                case 'server':
+                    stats.server++;
+                    break;
+                case 'server-readonly':
+                    stats.readonly++;
+                    break;
+                case 'temporary':
+                    stats.temporary++;
+                    break;
+                case 'local':
+                default:
+                    stats.local++;
+                    break;
+            }
+        });
+        
+        // Create or update stats display
+        let statsElement = document.getElementById('storage-stats');
+        if (!statsElement) {
+            statsElement = document.createElement('div');
+            statsElement.id = 'storage-stats';
+            statsElement.style.cssText = `
+                padding: 8px 12px;
+                margin: 10px 0;
+                background: rgba(0, 0, 0, 0.3);
+                border-radius: 5px;
+                font-size: 11px;
+                color: rgba(255, 255, 255, 0.8);
+                display: flex;
+                justify-content: space-around;
+                text-align: center;
+            `;
+            
+            // Add to song list container
+            const songListContainer = document.querySelector('.song-list-container');
+            if (songListContainer) {
+                const buttonContainer = songListContainer.querySelector('div');
+                if (buttonContainer) {
+                    songListContainer.insertBefore(statsElement, buttonContainer.nextSibling);
+                }
+            }
+        }
+        
+        // Update stats content
+        statsElement.innerHTML = `
+            <div>☁️ Firebase: ${stats.server}</div>
+            <div>💾 Local: ${stats.local}</div>
+            ${stats.temporary > 0 ? `<div>⚠️ Chưa lưu: ${stats.temporary}</div>` : ''}
+            ${stats.readonly > 0 ? `<div>🌐 View: ${stats.readonly}</div>` : ''}
+        `;
+        
+        console.log('[Storage Stats]', stats);
+    }
+
+    // Get song storage information
+    function getSongStorageInfo(song) {
+        // Check if it's a temporary song (not yet saved to server)
+        if (song.id.startsWith('temp_')) {
+            return {
+                icon: '⚠️',
+                label: 'Chưa lưu',
+                tooltip: 'Bài hát chưa được lưu - nhấn Save để lưu vĩnh viễn',
+                type: 'temporary'
+            };
+        }
+        
+        // Check if user can save to server (has admin/moderator permissions)
+        const canUseServer = currentUser && window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole);
+        
+        // If user has server permissions and song has userId (from Firebase)
+        if (canUseServer && song.userId) {
+            return {
+                icon: '☁️',
+                label: 'Firebase',
+                tooltip: 'Bài hát được lưu trên Firebase Cloud',
+                type: 'server'
+            };
+        }
+        
+        // If song has been loaded from Firebase but user doesn't have server permissions
+        if (song.userId && !canUseServer) {
+            return {
+                icon: '🌐',
+                label: 'Cloud (View)',
+                tooltip: 'Bài hát từ Cloud - bạn chỉ có thể xem',
+                type: 'server-readonly'
+            };
+        }
+        
+        // Default case - local storage
+        return {
+            icon: '💾',
+            label: 'Local',
+            tooltip: 'Bài hát được lưu trong bộ nhớ trình duyệt',
+            type: 'local'
+        };
+    }
+
     // Add a note at the clicked position
     function addNoteAtPosition(e) {
         // Get the grid coordinates
-        const rect = noteGrid.getBoundingClientRect();
+        const grid = document.querySelector('.note-grid');
+        if (!grid) return;
+        
+        const rect = grid.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         
@@ -2873,10 +3304,21 @@ window.onload = function() {
                         songItem.classList.add('active-song');
                     }
                     
+                    // Xác định storage type và tạo indicator
+                    const storageInfo = getSongStorageInfo(song);
+                    
                     // Tạo nội dung HTML cho bài hát
                     songItem.innerHTML = `
-                        <div class="song-name">${song.name}</div>
-                        <div class="song-info">${song.notes ? song.notes.length : 0} notes</div>
+                        <div class="song-header">
+                            <div class="song-name">${song.name}</div>
+                            <div class="storage-indicator" title="${storageInfo.tooltip}">
+                                ${storageInfo.icon}
+                            </div>
+                        </div>
+                        <div class="song-info">
+                            ${song.notes ? song.notes.length : 0} notes
+                            <span class="storage-label">${storageInfo.label}</span>
+                        </div>
                         <div class="song-actions">
                             <button class="edit-song-btn">Edit</button>
                             <button class="play-song-btn">Play</button>
@@ -2886,6 +3328,7 @@ window.onload = function() {
                     
                     // Thêm thuộc tính data để xác định bài hát
                     songItem.setAttribute('data-song-id', song.id);
+                    songItem.setAttribute('data-storage-type', storageInfo.type);
                     
                     // Thêm vào fragment
                     fragment.appendChild(songItem);
@@ -2908,15 +3351,62 @@ window.onload = function() {
                         position: relative;
                         transition: all 0.3s ease;
                     }
-                    .song-item .song-info {
+                    .song-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 2px;
+                    }
+                    .song-name {
+                        flex: 1;
+                        font-weight: bold;
+                    }
+                    .storage-indicator {
+                        font-size: 16px;
+                        cursor: help;
+                        opacity: 0.8;
+                        transition: opacity 0.3s ease;
+                    }
+                    .storage-indicator:hover {
+                        opacity: 1;
+                        transform: scale(1.1);
+                    }
+                    .song-info {
                         font-size: 0.8em;
                         opacity: 0.7;
                         margin-top: 2px;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    }
+                    .storage-label {
+                        font-size: 0.75em;
+                        padding: 2px 6px;
+                        border-radius: 10px;
+                        background: rgba(255, 255, 255, 0.1);
+                        margin-left: 8px;
                     }
                     .song-item.active-song {
                         background: rgba(54, 159, 255, 0.3) !important;
                         border-left: 3px solid #36c2ff !important;
                         box-shadow: 0 0 5px rgba(54, 159, 255, 0.5) !important;
+                    }
+                    /* Storage type specific colors */
+                    .song-item[data-storage-type="temporary"] .storage-label {
+                        background: rgba(255, 193, 7, 0.3);
+                        color: #ffc107;
+                    }
+                    .song-item[data-storage-type="server"] .storage-label {
+                        background: rgba(40, 167, 69, 0.3);
+                        color: #28a745;
+                    }
+                    .song-item[data-storage-type="server-readonly"] .storage-label {
+                        background: rgba(23, 162, 184, 0.3);
+                        color: #17a2b8;
+                    }
+                    .song-item[data-storage-type="local"] .storage-label {
+                        background: rgba(108, 117, 125, 0.3);
+                        color: #6c757d;
                     }
                 `;
                 document.head.appendChild(styleEl);
@@ -2934,6 +3424,9 @@ window.onload = function() {
             
             // Thêm các sự kiện cho các nút
             addSongItemEventListeners();
+            
+            // Hiển thị thống kê storage
+            displayStorageStats();
             
             console.log("[updateSongList] Cập nhật danh sách bài hát hoàn tất");
         } catch (error) {
@@ -2984,9 +3477,28 @@ window.onload = function() {
         // Delete song buttons
         document.querySelectorAll('.delete-song-btn').forEach(btn => {
             btn.addEventListener('click', function() {
+                console.log("Delete button clicked");
                 const songItem = this.closest('.song-item');
+                console.log("Song item found:", songItem);
+                
+                if (!songItem) {
+                    console.error("Song item not found!");
+                    showNotification('Lỗi: Không tìm thấy bài hát để xóa', 'error');
+                    return;
+                }
+                
                 const songId = songItem.getAttribute('data-song-id');
-                const songName = songItem.querySelector('.song-name').textContent;
+                console.log("Song ID:", songId);
+                
+                if (!songId) {
+                    console.error("Song ID not found!");
+                    showNotification('Lỗi: Không tìm thấy ID bài hát', 'error');
+                    return;
+                }
+                
+                const songNameElement = songItem.querySelector('.song-name');
+                const songName = songNameElement ? songNameElement.textContent : 'Unnamed Song';
+                console.log("Song name:", songName);
                 
                 // Hiển thị xác nhận trước khi xóa
                 const confirmDelete = document.createElement('div');
@@ -3131,17 +3643,53 @@ window.onload = function() {
             return;
         }
         
+        if (!newSongBtn) {
+            console.error("ERROR: newSongBtn element not found!");
+            return;
+        }
+        
         // New Song button
-        newSongBtn.addEventListener('click', createNewSong);
+        console.log("Adding click listener to new song button...");
+        newSongBtn.addEventListener('click', function() {
+            console.log("New song button clicked!");
+            try {
+                createNewSong();
+            } catch (error) {
+                console.error("Error creating new song:", error);
+                showNotification('Error creating new song: ' + error.message, 'error');
+            }
+        });
         
         // Import Song button
-        importSongBtn.addEventListener('click', importSong);
+        if (importSongBtn) {
+            importSongBtn.addEventListener('click', function() {
+                console.log("Import song button clicked!");
+                try {
+                    importSong();
+                } catch (error) {
+                    console.error("Error importing song:", error);
+                    showNotification('Error importing song: ' + error.message, 'error');
+                }
+            });
+        } else {
+            console.error("ERROR: importSongBtn element not found!");
+        }
         
         // Save Song button
         console.log("Adding click listener to save button...");
         saveSongBtn.addEventListener('click', function() {
             console.log("Save button clicked!");
-            saveSong();
+            console.log("Current song before save:", currentSong);
+            console.log("Current user:", currentUser);
+            console.log("Current user role:", currentUserRole);
+            console.log("Forced save mode:", forcedSaveMode);
+            
+            try {
+                saveSong();
+            } catch (error) {
+                console.error("Error saving song:", error);
+                showNotification('Error saving song: ' + error.message, 'error');
+            }
         });
         
         // Export Song button
@@ -3244,137 +3792,10 @@ window.onload = function() {
             });
         });
         
-        // Server password input validation
-        if (serverPasswordInput) {
-            serverPasswordInput.addEventListener('input', function() {
-                validateServerPassword(); // Update styling
-                updateSaveButtonState(); // Update button state
-            });
-        }
-        
-        // Add server check button with delay to ensure DOM is ready
-        setTimeout(() => {
-            addServerCheckButton();
-        }, 100);
+        // No password validation needed anymore - using role-based permissions
     }
     
-    // Add server check button to the password container
-    function addServerCheckButton() {
-        console.log("Adding server check button, serverPasswordContainer:", serverPasswordContainer);
-        if (!serverPasswordContainer) {
-            console.error("serverPasswordContainer not found!");
-            return;
-        }
-        
-        // Check if button already exists
-        if (serverPasswordContainer.querySelector('.server-check-btn')) {
-            console.log("Server check button already exists");
-            return;
-        }
-        
-        const checkButton = document.createElement('button');
-        checkButton.className = 'server-check-btn';
-        checkButton.textContent = 'Kiểm tra';
-        checkButton.type = 'button';
-        checkButton.style.marginLeft = '10px';
-        checkButton.style.padding = '5px 10px';
-        checkButton.style.fontSize = '12px';
-        checkButton.style.borderRadius = '3px';
-        checkButton.style.border = 'none';
-        checkButton.style.cursor = 'pointer';
-        checkButton.title = 'Kiểm tra kết nối server';
-        
-        checkButton.addEventListener('click', function() {
-            const button = this;
-            button.textContent = 'Đang kiểm tra...';
-            button.disabled = true;
-            
-            console.log("Server check button clicked");
-            showNotification('Đang kiểm tra kết nối server...', 'info');
-            
-            // Simple server check with manual timeout handling
-            const checkPromise = fetch(API_URL, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-            
-            // Manual timeout
-            let timeoutId = setTimeout(() => {
-                console.log("Server check timed out");
-                serverAvailable = false;
-                showNotification('Timeout - Server không phản hồi trong 5 giây', 'error');
-                updateServerCheckButton();
-                updateSaveButtonState();
-            }, 5000);
-            
-            checkPromise
-                .then(response => {
-                    clearTimeout(timeoutId);
-                    console.log("Server responded with status:", response.status);
-                    
-                    if (response.ok) {
-                        serverAvailable = true;
-                        showNotification('Server khả dụng!', 'success');
-                        console.log("Server is available");
-                    } else {
-                        serverAvailable = false;
-                        showNotification(`Server trả về lỗi ${response.status}`, 'error');
-                        console.log("Server returned error:", response.status);
-                    }
-                })
-                .catch(error => {
-                    clearTimeout(timeoutId);
-                    console.error('Error checking server:', error);
-                    serverAvailable = false;
-                    
-                    let errorMessage = 'Không thể kết nối đến server';
-                    if (error.message.includes('fetch')) {
-                        errorMessage = 'Lỗi kết nối mạng hoặc server không chạy';
-                    }
-                    
-                    showNotification(errorMessage + ' tại ' + API_URL, 'error');
-                })
-                .finally(() => {
-                    console.log("Server check completed, updating UI");
-                    updateServerCheckButton();
-                    updateSaveButtonState();
-                    updateConnectionStatus(serverAvailable ? 'Đã kết nối với server' : 'Đang sử dụng lưu trữ cục bộ');
-                });
-        });
-        
-        serverPasswordContainer.appendChild(checkButton);
-        console.log("Server check button added successfully");
-        updateServerCheckButton();
-    }
-    
-    // Update server check button appearance
-    function updateServerCheckButton() {
-        const checkButton = serverPasswordContainer?.querySelector('.server-check-btn');
-        if (!checkButton) {
-            console.log("Server check button not found");
-            return;
-        }
-        
-        console.log("Updating server check button, serverAvailable:", serverAvailable);
-        
-        checkButton.disabled = false;
-        
-        if (serverAvailable) {
-            checkButton.textContent = '✓ Kết nối';
-            checkButton.style.background = 'rgba(46, 213, 115, 0.7)';
-            checkButton.style.color = 'white';
-            checkButton.title = 'Server khả dụng - Nhấn để kiểm tra lại';
-        } else {
-            checkButton.textContent = '⚠ Kiểm tra lại';
-            checkButton.style.background = 'rgba(255, 71, 87, 0.7)';
-            checkButton.style.color = 'white';
-            checkButton.title = 'Server không khả dụng - Nhấn để kiểm tra lại';
-        }
-        
-        console.log("Server check button updated:", checkButton.textContent);
-    }
+
     
     // Handle save mode change
     function handleSaveModeChange(mode) {
@@ -3382,119 +3803,77 @@ window.onload = function() {
         forcedSaveMode = mode;
         
         if (mode === 'server') {
-            // Show password input
-            serverPasswordContainer.style.display = 'flex';
-            
-            // Ensure the check button is added
-            setTimeout(() => {
-                addServerCheckButton();
-            }, 50);
-            
-            // Check server availability
-            showNotification('Đang kiểm tra kết nối server...', 'info');
-            checkServerAvailability().then(() => {
-                if (!serverAvailable) {
-                    showNotification('Server không khả dụng. Vui lòng kiểm tra server và nhấn nút Kiểm tra lại.', 'warning');
-                } else {
-                    showNotification('Đã kết nối server thành công!', 'success');
+            // Check if user has permission
+            if (window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole)) {
+                showNotification('Server mode enabled for ' + currentUserRole, 'success');
+            } else {
+                showNotification('Server mode requires admin/moderator permissions', 'warning');
+                // Switch back to local mode
+                const localModeRadio = document.querySelector('input[name="save-mode"][value="local"]');
+                if (localModeRadio) {
+                    localModeRadio.checked = true;
                 }
-                updateServerCheckButton();
-            });
+                forcedSaveMode = 'local';
+            }
         } else {
-            // Hide password input
-            serverPasswordContainer.style.display = 'none';
             forcedSaveMode = 'local';
         }
         
         updateSaveButtonState();
     }
     
-    // Validate server password (không gọi updateSaveButtonState)
-    function validateServerPassword() {
-        if (!serverPasswordInput) return false;
-        
-        const inputPassword = serverPasswordInput.value;
-        const isValid = inputPassword === serverPassword;
-        
-        // Update input styling based on validation
-        if (inputPassword.length > 0) {
-            if (isValid) {
-                serverPasswordInput.style.borderColor = '#4ecca3';
-                serverPasswordInput.style.boxShadow = '0 0 5px rgba(78, 204, 163, 0.3)';
-            } else {
-                serverPasswordInput.style.borderColor = '#ff6b6b';
-                serverPasswordInput.style.boxShadow = '0 0 5px rgba(255, 107, 107, 0.3)';
-            }
-        } else {
-            serverPasswordInput.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-            serverPasswordInput.style.boxShadow = 'none';
+    // Update save button state based on mode and user permissions
+    function updateSaveButtonState() {
+        // Check if DOM elements exist
+        const saveBtn = document.getElementById('save-song-btn');
+        if (!saveBtn) {
+            console.warn("Save button not found, skipping updateSaveButtonState");
+            return;
         }
         
-        return isValid;
-    }
-    
-    // Check if password is valid without styling update
-    function checkPasswordValidity() {
-        if (!serverPasswordInput) return false;
-        const inputPassword = serverPasswordInput.value;
-        return inputPassword === serverPassword;
-    }
-    
-    // Update save button state based on mode and password
-    function updateSaveButtonState() {
-        if (!saveSongBtn) return;
-        
         if (forcedSaveMode === 'server') {
-            const isPasswordValid = checkPasswordValidity();
-            const hasPassword = serverPasswordInput && serverPasswordInput.value.length > 0;
-            
-            if (!hasPassword) {
-                saveSongBtn.style.opacity = '0.5';
-                saveSongBtn.style.cursor = 'not-allowed';
-                saveSongBtn.title = 'Vui lòng nhập mật khẩu server';
-            } else if (!isPasswordValid) {
-                saveSongBtn.style.opacity = '0.5';
-                saveSongBtn.style.cursor = 'not-allowed';
-                saveSongBtn.title = 'Mật khẩu không đúng';
+            // Check if user has permission to save to server
+            if (window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole)) {
+                saveBtn.style.opacity = '1';
+                saveBtn.style.cursor = 'pointer';
+                saveBtn.title = 'Lưu bài hát lên Firebase';
             } else {
-                saveSongBtn.style.opacity = '1';
-                saveSongBtn.style.cursor = 'pointer';
-                saveSongBtn.title = 'Lưu bài hát vào server';
+                saveBtn.style.opacity = '0.5';
+                saveBtn.style.cursor = 'not-allowed';
+                saveBtn.title = 'Cần quyền admin/moderator để lưu lên server';
             }
         } else {
-            saveSongBtn.style.opacity = '1';
-            saveSongBtn.style.cursor = 'pointer';
-            saveSongBtn.title = 'Lưu bài hát vào Local Storage';
+            saveBtn.style.opacity = '1';
+            saveBtn.style.cursor = 'pointer';
+            saveBtn.title = 'Lưu bài hát vào Local Storage';
         }
         
         // Update status indicator
         updateSaveStatusIndicator();
     }
     
-    // Get current save mode (with fallback logic)
+    // Get current save mode (simplified logic)
     function getCurrentSaveMode() {
         console.log("=== GET CURRENT SAVE MODE DEBUG ===");
         console.log("- forcedSaveMode:", forcedSaveMode);
-        console.log("- serverAvailable:", serverAvailable);
-        console.log("- checkPasswordValidity():", checkPasswordValidity());
+        console.log("- currentUserRole:", currentUserRole);
+        console.log("- canSaveToServer:", window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole));
         
         if (forcedSaveMode === 'local') {
             console.log("- Returning 'local' (forced local mode)");
             return 'local';
         } else if (forcedSaveMode === 'server') {
-            // Check password validity
-            if (checkPasswordValidity() && serverAvailable) {
-                console.log("- Returning 'server' (forced server mode with valid password and server available)");
+            // Check if user has permission to save to server
+            if (window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole)) {
+                console.log("- Returning 'server' (forced server mode with permissions)");
                 return 'server';
             } else {
-                console.log("- Returning 'local' (forced server mode but password invalid or server unavailable)");
-                console.log("  - Password valid:", checkPasswordValidity());
-                console.log("  - Server available:", serverAvailable);
+                console.log("- Returning 'local' (forced server mode but no permissions)");
                 return 'local';
             }
         } else {
-            // Auto-detect mode (fallback to original logic)
-            const autoMode = serverAvailable ? 'server' : 'local';
+            // Auto-detect mode based on user permissions
+            const autoMode = (window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole)) ? 'server' : 'local';
             console.log("- Returning '" + autoMode + "' (auto-detect mode)");
             return autoMode;
         }
@@ -3870,77 +4249,59 @@ window.onload = function() {
         // Hiển thị thông báo đang xóa
         showNotification('Đang xóa bài hát...', 'info');
         
-        if (serverAvailable) {
-            // Ghi log yêu cầu API
-            logApiRequest('DELETE', `${API_URL}/${songId}`, null);
-            
-            // Delete from server
-            fetch(`${API_URL}/${songId}`, {
-                method: 'DELETE',
-            })
-            .then(response => {
-                if (response.ok) {
-                    // Xóa bài hát khỏi mảng dữ liệu
-                    const songToDelete = songs.find(s => s.id === songId);
-                    const songName = songToDelete ? songToDelete.name : 'Bài hát';
-                    const originalLength = songs.length;
-                    
-                    // Remove from local array
-                    songs = songs.filter(s => s.id !== songId);
-                    
-                    // Log số lượng bài hát còn lại để debug
-                    console.log(`Đã xóa bài hát "${songName}". Còn lại ${songs.length}/${originalLength} bài hát.`);
-                    
-                    // Cập nhật lại localStorage nếu cần
-                    if (!serverAvailable) {
-                        saveSongs();
-                    }
-                    
-                    // Clear editor if the current song was deleted
-                    if (currentSong && currentSong.id === songId) {
-                        currentSong = null;
-                        clearNoteGrid();
-                        songNameInput.value = '';
-                        songBpmInput.value = 120;
-                    }
-                    
-                    // Cập nhật UI với độ trễ lớn hơn để đảm bảo các thao tác trước hoàn tất
-                    setTimeout(() => {
-                        try {
-                            // Xóa tất cả các phần tử con trong song-list trước
-                            const songList = document.getElementById('song-list');
-                            if (songList) {
-                                while (songList.firstChild) {
-                                    songList.removeChild(songList.firstChild);
-                                }
-                            }
-                            
-                            // Cập nhật lại danh sách UI
-                            updateSongList();
-                            
-                            // Hiển thị thông báo thành công
-                            showNotification(`Đã xóa bài hát "${songName}" thành công!`, 'success');
-                        } catch (renderError) {
-                            console.error("Lỗi khi cập nhật UI sau khi xóa:", renderError);
-                            showErrorMessage("Lỗi hiển thị - vui lòng nhấn nút Làm mới");
-                        }
-                    }, 300);
-                } else {
-                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+        // Check if user can save to server (admin/moderator with Firebase)
+        if (currentUser && window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole)) {
+            // Delete from Firebase
+            deleteFromFirebase();
+        } else {
+            // Xóa từ localStorage
+            deleteFromLocalStorage();
+        }
+        
+        // Hàm xóa từ Firebase
+        async function deleteFromFirebase() {
+            try {
+                console.log("Deleting song from Firebase:", songId);
+                
+                // Check permissions - only owner or admin can delete
+                const songToDelete = songs.find(s => s.id === songId);
+                if (songToDelete && songToDelete.userId !== currentUser.uid && currentUserRole !== 'admin') {
+                    throw new Error("You don't have permission to delete this song");
                 }
-            })
-            .catch(error => {
-                handleApiError(error, 'xóa bài hát');
+                
+                // Delete from Firebase
+                await db.collection('songs').doc(songId).delete();
+                console.log("Song deleted from Firebase successfully");
+                
+                // Remove from local array
+                const songName = songToDelete ? songToDelete.name : 'Bài hát';
+                const originalLength = songs.length;
+                songs = songs.filter(s => s.id !== songId);
+                
+                console.log(`Đã xóa bài hát "${songName}". Còn lại ${songs.length}/${originalLength} bài hát.`);
+                
+                // Clear editor if the current song was deleted
+                if (currentSong && currentSong.id === songId) {
+                    currentSong = null;
+                    clearNoteGrid();
+                    songNameInput.value = '';
+                    songBpmInput.value = 120;
+                }
+                
+                // Update UI
+                updateSongList();
+                showNotification(`Đã xóa bài hát "${songName}" thành công!`, 'success');
+                
+            } catch (error) {
+                console.error("Error deleting from Firebase:", error);
+                handleApiError(error, 'xóa bài hát từ Firebase');
                 
                 // Khôi phục danh sách nếu có lỗi
                 songs = songsBackup;
                 
-                // Fallback to localStorage if server fails
+                // Fallback to localStorage if Firebase fails
                 deleteFromLocalStorage();
-            });
-        } else {
-            // Xóa từ localStorage
-            deleteFromLocalStorage();
+            }
         }
         
         // Hàm xóa từ localStorage để tránh trùng lặp code
@@ -4680,37 +5041,8 @@ window.onload = function() {
         return 0;
     }
     
-    // Hàm cập nhật server với dữ liệu đã dọn dẹp
-    function updateServerWithCleanedData(cleanedSongs) {
-        console.log("Updating server with cleaned data...");
-        
-        // Tạo request body với songs và password
-        const requestBody = {
-            songs: cleanedSongs,
-            password: serverPassword
-        };
-        
-        // Ghi đè toàn bộ dữ liệu trên server với dữ liệu đã dọn dẹp
-        fetch(API_URL + '/cleanup', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-        })
-        .then(response => {
-            if (response.ok) {
-                console.log("Successfully cleaned up server data");
-                showNotification('Đã dọn dẹp dữ liệu trùng lặp trên server', 'success');
-            } else {
-                console.warn("Failed to cleanup server data, status:", response.status);
-            }
-        })
-        .catch(error => {
-            console.warn("Error cleaning up server data:", error);
-            // Không hiển thị lỗi này cho người dùng vì không ảnh hưởng đến chức năng chính
-        });
-    }
+    // Note: Server cleanup is now handled by Firebase's built-in duplicate prevention
+    // and admin panel management. No separate cleanup API needed.
 
     // Initialize auto-save
     setupAutoSave();
@@ -4725,8 +5057,6 @@ window.onload = function() {
         console.log("=== CHECKING SONG MANAGER ELEMENTS ===");
         console.log("songNameInput:", songNameInput);
         console.log("songBpmInput:", songBpmInput);
-        console.log("serverPasswordContainer:", serverPasswordContainer);
-        console.log("serverPasswordInput:", serverPasswordInput);
         console.log("saveSongBtn:", saveSongBtn);
         console.log("saveModeRadios:", saveModeRadios);
         
@@ -4744,24 +5074,31 @@ window.onload = function() {
     
     // Update save status indicator
     function updateSaveStatusIndicator() {
-        if (!saveStatusIndicator) return;
+        // Check if DOM element exists
+        const statusIndicator = document.getElementById('save-status');
+        if (!statusIndicator) {
+            console.warn("Save status indicator not found, skipping updateSaveStatusIndicator");
+            return;
+        }
         
         const currentSaveMode = getCurrentSaveMode();
         
         // Remove existing classes
-        saveStatusIndicator.classList.remove('server-mode', 'local-mode');
+        statusIndicator.classList.remove('server-mode', 'local-mode');
         
-        if (currentSaveMode === 'server' && forcedSaveMode === 'server' && serverAvailable) {
-            saveStatusIndicator.textContent = '✓ Server Mode';
-            saveStatusIndicator.classList.add('server-mode');
-        } else if (forcedSaveMode === 'server' && !serverAvailable) {
-            saveStatusIndicator.textContent = '⚠ Server (Offline)';
-            saveStatusIndicator.classList.add('local-mode');
-            saveStatusIndicator.style.color = '#ff6b6b';
+        const canUseFirebase = currentUser && window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole);
+        
+        if (currentSaveMode === 'server' && forcedSaveMode === 'server' && canUseFirebase) {
+            statusIndicator.textContent = '✓ Firebase Mode';
+            statusIndicator.classList.add('server-mode');
+        } else if (forcedSaveMode === 'server' && !canUseFirebase) {
+            statusIndicator.textContent = '⚠ Need Admin/Moderator';
+            statusIndicator.classList.add('local-mode');
+            statusIndicator.style.color = '#ff6b6b';
         } else {
-            saveStatusIndicator.textContent = 'Local Storage';
-            saveStatusIndicator.classList.add('local-mode');
-            saveStatusIndicator.style.color = '';
+            statusIndicator.textContent = 'Local Storage';
+            statusIndicator.classList.add('local-mode');
+            statusIndicator.style.color = '';
         }
     }
 }; 

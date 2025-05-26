@@ -4,8 +4,14 @@ npm-debug.log
 yarn-debug.log
 yarn-error.log
 
-# Data directory
-data/
+# Backup files
+*_backup.*
+*.bak
+*.old
+
+# Firebase (keep config but ignore sensitive files)
+firebase-debug.log
+.firebase/
 
 # IDE
 .vscode/
@@ -13,4 +19,14 @@ data/
 
 # OS specific
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+
+# Data directory
+data/ 
