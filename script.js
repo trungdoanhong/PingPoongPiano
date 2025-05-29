@@ -2626,8 +2626,12 @@ window.onload = function() {
         }, 3000);
     }
     
-    // Hiển thị thông báo thành công hoặc thất bại
+    // Hiển thị thông báo thành công hoặc thất bại - TEMPORARILY DISABLED
     function showNotification(message, type = 'info') {
+        // TEMPORARILY DISABLED - Only log to console
+        console.log(`Notification (${type}):`, message);
+        
+        /* DISABLED NOTIFICATION UI
         const notification = document.createElement('div');
         notification.className = 'notification';
         notification.textContent = message;
@@ -2664,9 +2668,7 @@ window.onload = function() {
                 }
             }, 500);
         }, 3000);
-        
-        // Ghi log thông báo
-        console.log(`Notification (${type}):`, message);
+        */
     }
     
     // Hiển thị hướng dẫn cho thiết bị di động
