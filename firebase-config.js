@@ -21,8 +21,11 @@ const googleProvider = new firebase.auth.GoogleAuthProvider();
 googleProvider.addScope('email');
 googleProvider.addScope('profile');
 
-// Admin email
-const ADMIN_EMAIL = 'trungdoanhong@gmail.com';
+// Admin emails
+const ADMIN_EMAILS = [
+  'trungdoanhong@gmail.com',
+  'jonyvanthan@gmail.com'
+];
 
 // User roles
 const USER_ROLES = {
@@ -37,16 +40,15 @@ let currentUserRole = USER_ROLES.USER;
 
 // Check if user is admin
 function isAdmin(email) {
+  const isAdminUser = ADMIN_EMAILS.includes(email);
   console.log('Checking if admin:', {
     email: email,
-    adminEmail: ADMIN_EMAIL,
-    areEqual: email === ADMIN_EMAIL,
+    adminEmails: ADMIN_EMAILS,
+    isAdminUser: isAdminUser,
     emailType: typeof email,
-    adminEmailType: typeof ADMIN_EMAIL,
-    emailTrimmed: email?.trim(),
-    adminEmailTrimmed: ADMIN_EMAIL?.trim()
+    emailTrimmed: email?.trim()
   });
-  return email === ADMIN_EMAIL;
+  return isAdminUser;
 }
 
 // Check if user can save to server (admin or moderator)
@@ -57,8 +59,8 @@ function canSaveToServer(role) {
 // Get user role from Firestore
 async function getUserRole(uid, email) {
   try {
-    console.log('Getting user role for:', email, 'Admin email:', ADMIN_EMAIL);
-    console.log('Is admin check:', email === ADMIN_EMAIL);
+    console.log('Getting user role for:', email, 'Admin emails:', ADMIN_EMAILS);
+    console.log('Is admin check:', ADMIN_EMAILS.includes(email));
     
     // Always check if user should be admin first
     const shouldBeAdmin = isAdmin(email);
@@ -131,7 +133,7 @@ async function forceAdminRole(uid, email) {
     console.log('Forcing admin role for:', email);
     
     // If user is admin email, bypass Firestore and return admin role
-    if (email === ADMIN_EMAIL) {
+    if (ADMIN_EMAILS.includes(email)) {
       console.log('User is admin email, bypassing Firestore check');
       return USER_ROLES.ADMIN;
     }
@@ -148,8 +150,8 @@ async function forceAdminRole(uid, email) {
       console.log('Successfully forced admin role in Firestore');
     } catch (firestoreError) {
       console.warn('Firestore permission error, but user is admin:', firestoreError.message);
-      // If it's the admin email, we still return admin role even if Firestore fails
-      if (email === ADMIN_EMAIL) {
+      // If it's an admin email, we still return admin role even if Firestore fails
+      if (ADMIN_EMAILS.includes(email)) {
         console.log('Bypassing Firestore error for admin user');
         return USER_ROLES.ADMIN;
       }
@@ -180,7 +182,7 @@ window.firebaseApp = {
   auth,
   db,
   googleProvider,
-  ADMIN_EMAIL,
+  ADMIN_EMAILS,
   USER_ROLES,
   currentUser,
   currentUserRole,

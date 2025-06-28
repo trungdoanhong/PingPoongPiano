@@ -227,7 +227,29 @@
 
     </div>
     
+    <!-- Firebase Configuration -->
     <script src="firebase-config.js"></script>
-    <script src="script.js"></script>
+    
+    <!-- Load the main application module -->
+    <script type="module">
+        import { initializeApp } from './js/app.js';
+        
+        // Initialize exactly like original script.js (using window.onload)
+        window.onload = function() {
+            console.log("🎹 Window loaded - starting Pink Poong Piano...");
+            initializeApp();
+        };
+        
+        // Fallback for DOM ready (in case window.onload doesn't fire)
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log("🎹 DOM ready - trying to start Pink Poong Piano...");
+                setTimeout(initializeApp, 100);
+            });
+        } else if (document.readyState === 'complete') {
+            console.log("🎹 Document already complete - starting Pink Poong Piano...");
+            setTimeout(initializeApp, 50);
+        }
+    </script>
 </body>
 </html> 

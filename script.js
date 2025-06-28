@@ -570,7 +570,7 @@ window.onload = function() {
             
             // Show force admin button if user should be admin but isn't
             const forceAdminBtn = document.getElementById('force-admin-btn');
-            if (user.email === window.firebaseApp.ADMIN_EMAIL && role !== 'admin') {
+            if (window.firebaseApp.ADMIN_EMAILS?.includes(user.email) && role !== 'admin') {
                 console.log('Showing force admin button for:', user.email);
                 forceAdminBtn.style.display = 'inline-block';
             } else {
@@ -1534,7 +1534,7 @@ window.onload = function() {
         // Force admin button
         const forceAdminBtn = document.getElementById('force-admin-btn');
         forceAdminBtn.addEventListener('click', async () => {
-                if (currentUser && currentUser.email === window.firebaseApp.ADMIN_EMAIL) {
+                if (currentUser && window.firebaseApp.ADMIN_EMAILS?.includes(currentUser.email)) {
                     try {
                         console.log('Force updating admin role...');
                         showNotification('Updating admin role...', 'info');
@@ -4970,7 +4970,7 @@ window.onload = function() {
                         <option value="moderator" ${user.role === 'moderator' ? 'selected' : ''}>Moderator</option>
                         <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
                     </select>
-                    <button class="delete-user-btn" data-user-id="${user.id}" ${user.email === window.firebaseApp.ADMIN_EMAIL ? 'disabled' : ''}>Delete</button>
+                    <button class="delete-user-btn" data-user-id="${user.id}" ${window.firebaseApp.ADMIN_EMAILS?.includes(user.email) ? 'disabled' : ''}>Delete</button>
                 </div>
             `;
             
