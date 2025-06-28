@@ -67,6 +67,14 @@
                     <div class="control-value" id="margin-value">0%</div>
                     <div class="control-btn" id="margin-up">+</div>
                 </div>
+                
+                <div id="restart-control" style="display: none;">
+                    <button id="restart-game-btn">🔄 Restart</button>
+                </div>
+                
+                <div id="fullscreen-control">
+                    <button id="fullscreen-btn">⛶</button>
+                </div>
             </div>
         </div>
         
@@ -77,8 +85,9 @@
             
             <div id="start-screen">
                 <h1>Pink Poong Piano</h1>
-                <p>Tap the black tiles as they appear. Create and play your own songs!</p>
-                <button id="start-button">Start Game</button>
+                <p>Chọn bài hát từ Song Manager và nhấn Play để bắt đầu chơi!</p>
+                <p style="font-size: 14px; opacity: 0.8; margin-top: 10px;">Hoặc tạo bài hát mới trong Song Manager</p>
+                <button id="start-button">Song Manager</button>
             </div>
             
             <div id="game-over">
@@ -136,19 +145,15 @@
         <div id="song-manager">
             <div class="song-manager-content">
                 <div class="song-list-container">
-                    <h2>All Songs</h2>
-                    <div class="song-controls">
-                        <button id="new-song-btn">New Song</button>
-                        <button id="import-song-btn">Import</button>
-                    </div>
-                    <div id="song-list">
-                        <!-- Songs will be listed here -->
-                        <div class="song-item default-song">
-                            <div class="song-name">Happy Birthday</div>
-                            <div class="song-actions">
-                                <button class="edit-song-btn">Edit</button>
-                                <button class="play-song-btn">Play</button>
-                            </div>
+                    <div class="song-list-toggle" id="song-list-toggle">◀</div>
+                    <div class="song-list-content">
+                        <h2>All Songs</h2>
+                        <div class="song-controls">
+                            <button id="new-song-btn">New Song</button>
+                            <button id="import-song-btn">Import</button>
+                        </div>
+                        <div id="song-list">
+                            <!-- Songs will be listed here -->
                         </div>
                     </div>
                 </div>
@@ -161,6 +166,11 @@
                             <div class="bpm-control">
                                 <label for="song-bpm">BPM:</label>
                                 <input type="number" id="song-bpm" min="60" max="240" value="120">
+                            </div>
+                            <div class="roll-length-control">
+                                <label for="roll-length">Length:</label>
+                                <input type="number" id="roll-length" min="16" max="128" value="32" step="4">
+                                <span>bars</span>
                             </div>
                         </div>
                         <div class="save-mode-selection">
@@ -199,6 +209,7 @@
                     <div class="note-controls">
                         <div class="note-duration">
                             <label>Duration:</label>
+                            <button class="duration-btn" data-value="0.25">1/16</button>
                             <button class="duration-btn" data-value="0.5">1/8</button>
                             <button class="duration-btn" data-value="1">1/4</button>
                             <button class="duration-btn active" data-value="2">1/2</button>
@@ -213,9 +224,7 @@
             </div>
         </div>
         
-        <div id="fullscreen-hint">
-            Fullscreen
-        </div>
+
     </div>
     
     <script src="firebase-config.js"></script>

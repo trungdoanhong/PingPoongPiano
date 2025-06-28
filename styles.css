@@ -238,25 +238,7 @@ body.scrollable {
     font-weight: 600;
 }
 
-#fullscreen-hint {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    color: white;
-    padding: 10px 20px;
-    z-index: 110;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
 
-#fullscreen-hint:hover {
-    transform: scale(1.05);
-}
-
-#fullscreen-hint:active {
-    transform: scale(0.95);
-}
 
 #start-screen, #game-over {
     position: absolute;
@@ -471,12 +453,7 @@ button:active:after {
         display: none; /* Hide labels on very small screens */
     }
     
-    #fullscreen-hint {
-        bottom: 10px;
-        right: 10px;
-        padding: 8px 15px;
-        font-size: 12px;
-    }
+
 }
 
 @media (orientation: portrait) {
@@ -486,6 +463,171 @@ button:active:after {
     
     #game-container {
         display: none;
+    }
+}
+
+/* Mobile Landscape Specific - Ensure no overlap */
+@media (max-width: 1024px) and (orientation: landscape) {
+    /* Ensure all panels have proper top padding to avoid control panel overlap */
+    #song-manager {
+        padding-top: 48px !important; /* 44px height + 4px margin */
+    }
+    
+    #audio-analyzer {
+        padding-top: 48px !important;
+    }
+    
+    #admin-panel {
+        padding-top: 48px !important;
+    }
+    
+    /* Game content should also respect control panel */
+    #game-content {
+        margin-top: 44px;
+    }
+    
+    /* Start and game over screens should account for control panel */
+    #start-screen,
+    #game-over {
+        padding-top: 44px;
+        box-sizing: border-box;
+    }
+    
+    /* Ensure menu dropdown doesn't go off screen */
+    #dropdown-menu {
+        max-height: calc(100vh - 80px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Better touch response for all interactive elements */
+    .control-panel * {
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
+}
+
+/* Ensure control panel works on all mobile devices */
+@media (max-width: 1024px) {
+    .control-panel {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 300 !important;
+        pointer-events: auto !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        transform: none !important;
+    }
+    
+    #score-panel {
+        pointer-events: auto !important;
+        z-index: 310 !important;
+    }
+    
+    #controls-container {
+        pointer-events: auto !important;
+        z-index: 310 !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    
+    #menu-button {
+        pointer-events: auto !important;
+        cursor: pointer !important;
+        z-index: 400 !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    
+    #user-panel {
+        pointer-events: auto !important;
+        z-index: 350 !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    
+    #dropdown-menu {
+        pointer-events: auto !important;
+        z-index: 500 !important;
+    }
+    
+    /* Force show these elements */
+    #user-info,
+    #google-login-btn,
+    #restart-control {
+        pointer-events: auto !important;
+    }
+}
+
+/* Extra small screens in landscape - Ultra compact */
+@media (max-width: 480px) and (orientation: landscape) {
+    .control-panel {
+        padding: 4px 8px;
+        height: 40px;
+        min-height: 40px;
+    }
+    
+    #score-panel {
+        font-size: 12px;
+        padding: 2px 6px;
+    }
+    
+    #menu-button {
+        font-size: 10px;
+        padding: 4px 6px;
+        height: 28px;
+        min-width: 60px;
+    }
+    
+    #user-info img {
+        width: 24px !important;
+        height: 24px !important;
+    }
+    
+    #user-info.collapsed {
+        width: 28px;
+        height: 28px;
+    }
+    
+    #google-login-btn {
+        height: 28px;
+        font-size: 10px;
+        padding: 2px 6px;
+    }
+    
+    #restart-game-btn {
+        height: 28px;
+        font-size: 10px;
+    }
+    
+    #restart-control {
+        width: 60px;
+    }
+    
+    #fullscreen-btn {
+        height: 28px;
+        font-size: 12px;
+        min-width: 32px;
+        padding: 2px 6px;
+    }
+    
+    /* Adjust panel padding for smaller control panel */
+    #song-manager,
+    #audio-analyzer,
+    #admin-panel {
+        padding-top: 44px !important;
+    }
+    
+    #game-content {
+        margin-top: 40px;
+    }
+    
+    #start-screen,
+    #game-over {
+        padding-top: 40px;
     }
 }
 
@@ -616,7 +758,7 @@ button:active:after {
     top: 100%;
     left: 0;
     margin-top: 5px;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.95);
     backdrop-filter: blur(10px);
     border-radius: 10px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
@@ -624,13 +766,21 @@ button:active:after {
     display: none;
     flex-direction: column;
     gap: 5px;
-    z-index: 300;
+    z-index: 500;
     min-width: 150px;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    pointer-events: auto;
 }
 
 #menu-button.active #dropdown-menu {
-    display: flex;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Visual feedback when menu is active */
+#menu-button.active {
+    background: rgba(10, 189, 227, 0.4);
 }
 
 .menu-item {
@@ -657,46 +807,27 @@ button:active:after {
     transform: translateY(1px);
 }
 
-/* Control panel styles */
-.control-panel {
-    position: absolute;
-    top: 10px;
-    left: 0;
-    right: 0;
-    display: flex;
-    justify-content: space-between;
-    padding: 0 20px;
-    z-index: 200;
-}
-
-#score-panel {
-    padding: 10px 20px;
-    color: white;
-    font-size: 18px;
-    font-weight: 600;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-}
-
-#controls-container {
-    display: flex;
-    gap: 15px;
-}
+/* Duplicate control panel styles removed - using media query versions */
 
 /* Song Manager Styles */
 #song-manager {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    height: 100%;
+    height: 100vh;
+    height: 100dvh; /* Use dynamic viewport height if supported */
     display: none;
     flex-direction: column;
     padding-top: 60px;
     z-index: 120;
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
     overflow-y: auto;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
+    /* Ensure it's scrollable on mobile */
+    overscroll-behavior: contain;
 }
 
 .song-manager-content {
@@ -705,8 +836,9 @@ button:active:after {
     height: auto;
     min-height: calc(100vh - 60px);
     padding: 20px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     touch-action: pan-y;
+    overflow: hidden;
 }
 
 .song-list-container {
@@ -774,9 +906,7 @@ button:active:after {
     color: white;
 }
 
-.default-song .song-name {
-    color: #0abde3;
-}
+/* Default song class removed */
 
 .song-actions {
     display: flex;
@@ -808,6 +938,8 @@ button:active:after {
     flex-direction: column;
     border: 1px solid rgba(255, 255, 255, 0.1);
     min-height: 400px;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .song-editor h2 {
@@ -859,6 +991,24 @@ button:active:after {
     text-align: center;
 }
 
+.roll-length-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: white;
+}
+
+#roll-length {
+    width: 70px;
+    padding: 8px;
+    border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.2);
+    color: white;
+    font-size: 16px;
+    text-align: center;
+}
+
 .editor-actions {
     display: flex;
     gap: 10px;
@@ -897,6 +1047,9 @@ button:active:after {
     overflow: hidden;
     position: relative;
     min-height: 300px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
 }
 
 .piano-keys {
@@ -908,7 +1061,8 @@ button:active:after {
 
 .note-grid {
     flex: 1;
-    overflow: auto;
+    overflow-x: auto;
+    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     position: relative;
     background: repeating-linear-gradient(
@@ -921,6 +1075,8 @@ button:active:after {
     cursor: default;
     z-index: 1;
     touch-action: pan-x pan-y;
+    min-width: 0;
+    width: 100%;
 }
 
 .grid-note {
@@ -1053,98 +1209,1070 @@ button:active:after {
     opacity: 1;
 }
 
-@media (max-width: 768px) {
+/* Mobile Portrait - Stack vertically, simpler layout */
+@media (max-width: 767px) and (orientation: portrait) {
+    #song-manager {
+        padding-top: 55px; /* Much smaller top padding */
+    }
+    
     .song-manager-content {
         flex-direction: column;
-        padding: 10px;
+        padding: 8px; /* Smaller padding to save space */
+        overflow-y: visible;
+        min-height: calc(100vh - 55px);
+        min-height: calc(100dvh - 55px);
+        gap: 10px; /* Smaller gap to save space */
     }
     
     .song-list-container {
         width: 100%;
         margin-right: 0;
-        margin-bottom: 20px;
-        min-height: 250px;
+        margin-bottom: 0;
+        min-height: 150px; /* Smaller minimum */
+        max-height: 45vh; /* More space for song list */
+        max-height: 45dvh;
+        overflow-y: auto;
+        padding: 12px; /* Moderate padding */
+    }
+    
+    .song-list-container h2 {
+        font-size: 18px; /* Smaller title */
+        margin-bottom: 12px;
+    }
+    
+    .song-controls button {
+        font-size: 14px; /* Normal text */
+        padding: 10px 12px; /* Normal padding */
+        min-height: 42px; /* Reasonable touch target */
+    }
+    
+    .song-item {
+        padding: 12px; /* Normal padding */
+        min-height: 60px; /* Reasonable size */
+        gap: 8px;
+    }
+    
+    .song-name {
+        font-size: 16px; /* Normal text size */
+        line-height: 1.3;
+    }
+    
+    .song-actions button {
+        font-size: 13px; /* Normal text */
+        padding: 8px 12px; /* Normal padding */
+        min-height: 36px;
+        min-width: 60px;
     }
     
     .song-editor {
         width: 100%;
-        min-height: 350px;
+        min-height: calc(55vh - 80px); /* More space for editor */
+        min-height: calc(55dvh - 80px);
+        overflow-y: auto;
+        padding: 12px; /* Normal padding */
+    }
+    
+    .song-editor h2 {
+        font-size: 18px; /* Normal title */
+        margin-bottom: 12px;
     }
     
     .editor-controls {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 15px;
+        gap: 12px; /* Normal space */
+        margin-bottom: 12px;
     }
     
     .song-info {
-        flex-direction: column;
-        gap: 10px;
-        align-items: stretch;
+        gap: 12px;
     }
     
     #song-name {
-        width: 100%;
+        font-size: 16px; /* Normal text */
+        padding: 10px 12px; /* Normal padding */
+        min-height: 42px; /* Reasonable touch target */
+        width: 100%; /* Full width on portrait */
     }
     
-    .save-mode-selection {
-        align-items: stretch;
+    .bpm-control, .roll-length-control {
+        font-size: 14px; /* Normal text */
     }
     
-    .save-mode-control {
-        align-items: stretch;
+    #song-bpm, #roll-length {
+        width: 80px; /* Normal width */
+        padding: 10px; /* Normal padding */
+        font-size: 16px; /* Normal text */
+        min-height: 42px;
     }
     
-    .save-mode-options {
-        justify-content: center;
-    }
-    
-
-    
-    .editor-actions {
-        justify-content: center;
-        flex-wrap: wrap;
-    }
-    
-    .save-status {
-        order: -1;
-        width: 100%;
-        text-align: center;
-        margin-bottom: 10px;
-    }
-    
-    .save-mode-selection {
-        margin: 10px 0;
+    .editor-actions button {
+        font-size: 14px; /* Normal text */
+        padding: 10px 16px; /* Normal padding */
+        min-height: 42px;
+        min-width: 80px;
     }
     
     .piano-roll-container {
-        min-height: 250px;
-        overflow: auto;
-        -webkit-overflow-scrolling: touch;
+        min-height: calc(40vh - 80px); /* More reasonable height */
+        min-height: calc(40dvh - 80px);
+        margin-bottom: 10px;
+    }
+    
+    .piano-keys {
+        width: 50px; /* Normal width */
+    }
+    
+    .editor-key {
+        height: 20px; /* Normal keys */
+        font-size: 11px;
+    }
+    
+    .grid-note {
+        height: 18px; /* Normal notes */
+        min-width: 25px;
+    }
+    
+    .note-controls {
+        gap: 12px;
+        padding: 8px 0;
+        flex-wrap: wrap; /* Allow wrapping on small screens */
+    }
+    
+    .note-duration {
+        font-size: 14px;
+        gap: 8px;
+    }
+    
+    .duration-btn {
+        font-size: 12px;
+        padding: 8px 12px;
+        min-width: 45px;
+        min-height: 36px;
+    }
+    
+    .playback-controls button {
+        font-size: 14px;
+        padding: 8px 12px;
+        min-height: 36px;
+        min-width: 70px;
+    }
+}
+
+/* Mobile Landscape - Balanced and efficient layout */
+@media (max-width: 1024px) and (orientation: landscape) {
+    #song-manager {
+        padding-top: 55px; /* Smaller top padding */
+    }
+    
+    .song-manager-content {
+        padding: 8px;
+        gap: 8px;
+        min-height: calc(100vh - 55px);
+        min-height: calc(100dvh - 55px);
+        overflow-y: visible;
+    }
+    
+    /* Reasonable Song List width */
+    .song-list-container {
+        width: 280px; /* Balanced width */
+        min-width: 280px;
+        margin-right: 8px;
+        padding: 10px;
+        position: relative;
+        transition: width 0.3s ease;
+    }
+    
+    .song-list-container.collapsed {
+        width: 50px; /* Normal collapsed state */
+        min-width: 50px;
+    }
+    
+    .song-list-container.collapsed .song-list-content {
+        display: none;
+    }
+    
+    .song-list-toggle {
+        position: absolute;
+        top: 10px;
+        right: -20px; /* Reasonable position */
+        width: 36px; /* Normal size */
+        height: 36px; /* Normal size */
+        background: rgba(10, 189, 227, 0.8);
+        border-radius: 50%;
+        display: none; /* Hidden by default, shown via JavaScript */
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 10;
+        font-size: 16px; /* Normal icon size */
+        color: white;
+        transition: all 0.3s ease;
+        border: none;
+        user-select: none;
+        /* Better touch target for mobile */
+        min-width: 36px;
+        min-height: 36px;
+        -webkit-tap-highlight-color: transparent;
+        box-shadow: 0 2px 8px rgba(10, 189, 227, 0.3); /* Subtle shadow */
+    }
+    
+    .song-list-toggle:hover {
+        background: rgba(10, 189, 227, 1);
+        transform: scale(1.1);
+    }
+    
+    .song-list-container h2 {
+        font-size: 16px; /* Normal title */
+        margin-bottom: 10px;
+    }
+    
+    .song-controls button {
+        font-size: 13px; /* Normal text */
+        padding: 8px 12px; /* Normal padding */
+        min-height: 36px; /* Normal touch target */
+    }
+    
+    #song-list {
+        max-height: calc(100vh - 180px);
+        max-height: calc(100dvh - 180px);
+        gap: 6px; /* Normal space between items */
+    }
+    
+    .song-item {
+        padding: 10px; /* Normal padding */
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        min-height: 60px; /* Normal clickable area */
+    }
+    
+    .song-name {
+        font-size: 14px; /* Normal text */
+        word-break: break-word;
+        line-height: 1.3;
+    }
+    
+    .song-actions {
+        align-self: stretch;
+        justify-content: center;
+        gap: 6px; /* Normal space between buttons */
+    }
+    
+    .song-actions button {
+        font-size: 12px; /* Normal text */
+        padding: 6px 10px; /* Normal padding */
+        min-height: 32px; /* Normal touch target */
+        min-width: 50px;
+    }
+    
+    /* Efficient Song Editor */
+    .song-editor {
+        flex: 1;
+        padding: 10px; /* Normal padding */
+        min-width: 0;
+        overflow: hidden;
+    }
+    
+    .song-editor h2 {
+        font-size: 16px; /* Normal title */
+        margin-bottom: 10px;
+    }
+    
+    /* Compact Editor Controls */
+    .editor-controls {
+        flex-direction: column;
+        gap: 10px; /* Normal space */
+        margin-bottom: 10px;
+    }
+    
+    .song-info {
+        flex-wrap: wrap;
+        gap: 10px; /* Normal space */
+        align-items: center;
+    }
+    
+    #song-name {
+        font-size: 14px; /* Normal text */
+        padding: 8px 10px; /* Normal padding */
+        width: 200px; /* Normal input width */
+        min-width: 150px;
+        min-height: 36px; /* Normal touch target */
+    }
+    
+    .bpm-control, .roll-length-control {
+        gap: 6px; /* Normal space */
+        font-size: 13px; /* Normal text */
+    }
+    
+    #song-bpm, #roll-length {
+        width: 60px; /* Normal inputs */
+        padding: 8px; /* Normal padding */
+        font-size: 13px; /* Normal text */
+        min-height: 36px; /* Normal touch target */
+    }
+    
+    .save-mode-selection {
+        align-self: flex-start;
+    }
+    
+    .save-mode-options {
+        gap: 8px; /* Normal space */
+    }
+    
+    .save-mode-option {
+        font-size: 12px; /* Normal text */
+        padding: 4px; /* Normal padding */
+    }
+    
+    .editor-actions {
+        gap: 8px; /* Normal space */
+        flex-wrap: wrap;
+    }
+    
+    .editor-actions button {
+        font-size: 12px; /* Normal text */
+        padding: 8px 12px; /* Normal padding */
+        min-height: 36px; /* Normal touch target */
+        min-width: 60px;
+    }
+    
+    .save-status {
+        font-size: 11px; /* Smaller text */
+        padding: 4px 8px; /* Less padding */
+    }
+    
+    /* Efficient Piano Roll */
+    .piano-roll-container {
+        flex: 1;
+        min-height: calc(100vh - 240px); /* More space for piano roll */
+        min-height: calc(100dvh - 240px);
+        max-height: calc(100vh - 200px);
+        max-height: calc(100dvh - 200px);
+        margin-bottom: 8px;
+        overflow: hidden;
+    }
+    
+    .piano-keys {
+        width: 45px; /* Normal piano keys */
+    }
+    
+    .editor-key {
+        height: 18px; /* Normal key height */
+        font-size: 10px; /* Normal text */
     }
     
     .note-grid {
-        overflow: auto;
-        -webkit-overflow-scrolling: touch;
+        font-size: 12px; /* Normal text */
+        background-size: 30px; /* Normal grid */
     }
     
-    /* Ensure mobile controls are accessible */
+    .grid-note {
+        height: 16px; /* Normal notes */
+        border-radius: 3px;
+        min-width: 20px; /* Normal minimum width */
+    }
+    
+    .grid-note .resize-handle {
+        width: 5px; /* Normal resize handle */
+    }
+    
+    /* Efficient Note Controls */
+    .note-controls {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px; /* Normal space */
+        flex-wrap: wrap;
+        padding: 6px 0; /* Less padding */
+    }
+    
+    .note-duration {
+        gap: 6px; /* Normal space */
+        font-size: 12px; /* Normal text */
+    }
+    
+    .duration-btn {
+        font-size: 11px; /* Normal text */
+        padding: 6px 10px; /* Normal padding */
+        min-width: 40px;
+        min-height: 32px; /* Normal touch target */
+    }
+    
+    .playback-controls {
+        gap: 6px; /* Normal space */
+    }
+    
+    .playback-controls button {
+        font-size: 12px; /* Normal text */
+        padding: 6px 10px; /* Normal padding */
+        min-height: 32px; /* Normal touch target */
+        min-width: 60px;
+    }
+}
+
+/* Tablet and Small Desktop - Balanced layout */
+@media (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
+    #song-manager {
+        padding-top: 55px; /* Consistent with mobile */
+    }
+    
+    .song-manager-content {
+        min-height: calc(100vh - 55px);
+        min-height: calc(100dvh - 55px);
+        padding: 10px;
+        gap: 10px;
+    }
+    
+    .song-list-container {
+        width: 260px; /* Balanced width */
+        min-width: 260px;
+        padding: 10px;
+    }
+    
+    .song-list-container h2 {
+        font-size: 18px;
+    }
+    
+    .song-controls button {
+        font-size: 14px;
+        padding: 10px 14px;
+        min-height: 44px;
+    }
+    
+    .song-item {
+        padding: 12px;
+        min-height: 70px;
+    }
+    
+    .song-name {
+        font-size: 16px;
+    }
+    
+    .song-actions button {
+        font-size: 13px;
+        padding: 6px 10px;
+        min-height: 36px;
+        min-width: 55px;
+    }
+    
+    #song-name {
+        width: 220px;
+        font-size: 16px;
+        padding: 10px 12px;
+        min-height: 44px;
+    }
+    
+    #song-bpm, #roll-length {
+        width: 70px;
+        padding: 10px;
+        font-size: 14px;
+        min-height: 44px;
+    }
+    
+    .editor-actions button {
+        font-size: 14px;
+        padding: 10px 16px;
+        min-height: 44px;
+        min-width: 70px;
+    }
+    
+    .piano-keys {
+        width: 55px;
+    }
+    
+    .editor-key {
+        height: 22px;
+        font-size: 11px;
+    }
+    
+    .grid-note {
+        height: 18px;
+        min-width: 25px;
+    }
+    
+    .grid-note .resize-handle {
+        width: 6px;
+    }
+    
+    .duration-btn {
+        font-size: 13px;
+        padding: 8px 12px;
+        min-width: 45px;
+        min-height: 40px;
+    }
+    
+    .playback-controls button {
+        font-size: 14px;
+        padding: 10px 16px;
+        min-height: 44px;
+        min-width: 70px;
+    }
+    
+    .piano-roll-container {
+        min-height: calc(100vh - 280px);
+        min-height: calc(100dvh - 280px);
+        max-height: calc(100vh - 240px);
+        max-height: calc(100dvh - 240px);
+    }
+}
+
+/* General Mobile Improvements */
+@media (max-width: 1024px) {
+    /* Mobile viewport fixes */
+    html, body {
+        height: 100%;
+        height: 100vh;
+        height: 100dvh;
+        overflow-x: hidden;
+        /* Prevent bounce scrolling on iOS */
+        overscroll-behavior: contain;
+    }
+    
+    /* Touch-friendly scrollbars */
+    .song-manager-content,
+    #song-list,
+    .note-grid,
+    .piano-roll-container {
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        /* Better scroll performance */
+        transform: translateZ(0);
+        will-change: scroll-position;
+    }
+    
+    /* Ensure Song Manager can scroll properly */
+    #song-manager {
+        /* Force hardware acceleration */
+        transform: translateZ(0);
+        /* Better scrolling on iOS */
+        -webkit-overflow-scrolling: touch;
+        /* Prevent scroll chaining */
+        overscroll-behavior: contain;
+    }
+    
+    /* Compact mobile controls */
     .control-panel {
         position: fixed;
-        top: 10px;
+        top: 0;
         left: 0;
         right: 0;
         z-index: 300;
+        padding: 6px 12px;
+        background: rgba(0, 0, 0, 0.95);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        pointer-events: auto;
+        min-height: 44px;
+        height: 44px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        /* Ensure it doesn't overlap other panels */
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Compact score panel */
+    #score-panel {
+        padding: 4px 8px;
+        font-size: 14px;
+        font-weight: 600;
+        color: white;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    
+    /* Compact controls container */
+    #controls-container {
+        gap: 4px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        max-width: calc(100vw - 120px); /* Reserve space for score */
+    }
+    
+    #controls-container::-webkit-scrollbar {
+        display: none;
+    }
+    
+    /* Smaller menu button */
+    #menu-button {
+        font-size: 12px;
+        padding: 6px 10px;
+        height: 32px;
+        border-radius: 6px;
+        background: rgba(10, 189, 227, 0.8) !important;
+        border: 2px solid rgba(10, 189, 227, 1) !important;
+        white-space: nowrap;
+        flex-shrink: 0;
+        min-width: 70px;
+        cursor: pointer;
+        color: white;
+        position: relative;
+        transition: all 0.2s ease;
+        z-index: 400;
+        /* Mobile touch improvements */
+        -webkit-tap-highlight-color: rgba(10, 189, 227, 0.3);
+        touch-action: manipulation;
+        user-select: none;
+        /* Make it more visible */
+        box-shadow: 0 2px 8px rgba(10, 189, 227, 0.5) !important;
+    }
+    
+    #menu-button:hover {
+        background: rgba(10, 189, 227, 0.4);
+        transform: translateY(-1px);
+    }
+    
+    #menu-button:active {
+        transform: translateY(0) scale(0.95);
+    }
+    
+    /* Keep speed and margin controls visible on mobile landscape */
+    #speed-control,
+    #margin-control {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        flex-shrink: 1;
+        min-width: 80px;
+    }
+    
+    /* Only hide speed/margin controls on very small screens */
+    @media (max-width: 480px) {
+        #speed-control,
+        #margin-control {
+            display: none;
+        }
+    }
+    
+    /* Force show all main control panel elements */
+    #score-panel,
+    #controls-container,
+    #user-panel,
+    #menu-button,
+    #speed-control,
+    #margin-control,
+    #fullscreen-control {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
+    
+    /* Override any hiding for mobile */
+    @media (min-width: 481px) {
+        #speed-control,
+        #margin-control {
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+    }
+    
+    /* Ensure restart control shows when visible class is added */
+    #restart-control.visible {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
+    
+    /* Fullscreen control in control panel */
+    #fullscreen-control {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+    }
+    
+    #fullscreen-btn {
+        padding: 4px 8px;
+        font-size: 14px;
+        height: 32px;
+        background: rgba(10, 189, 227, 0.8);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        flex-shrink: 0;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 36px;
+    }
+    
+    #fullscreen-btn:hover {
+        background: rgba(10, 189, 227, 1);
+        transform: translateY(-1px);
+    }
+    
+    #fullscreen-btn:active {
+        transform: translateY(0) scale(0.95);
+    }
+    
+    /* Compact collapsible user panel */
+    #user-panel {
+        font-size: 11px;
+        position: relative;
+        flex-shrink: 0;
+    }
+    
+    #user-info {
+        gap: 4px;
+        cursor: pointer;
+        position: relative;
+        display: flex;
+        align-items: center;
+        padding: 2px;
+        border-radius: 20px;
+        transition: all 0.3s ease;
+        background: rgba(10, 189, 227, 0.1);
+        border: 1px solid rgba(10, 189, 227, 0.2);
+        z-index: 350;
+        pointer-events: auto;
+    }
+    
+    #user-info:hover {
+        background: rgba(10, 189, 227, 0.2);
+    }
+    
+    #user-info:active {
+        transform: scale(0.95);
+    }
+    
+    /* Default state - only show avatar */
+    #user-info.collapsed {
+        width: 32px;
+        height: 32px;
+        overflow: hidden;
+        border-radius: 50%;
+        background: rgba(10, 189, 227, 0.2);
+    }
+    
+    #user-info.collapsed #user-name,
+    #user-info.collapsed .user-role,
+    #user-info.collapsed #logout-btn {
+        display: none;
+    }
+    
+    #user-info img {
+        width: 28px !important;
+        height: 28px !important;
+        border-radius: 50%;
+        transition: all 0.3s ease;
+        flex-shrink: 0;
+    }
+    
+    /* Expanded state */
+    #user-info.expanded {
+        position: absolute;
+        top: 0;
+        right: 0;
+        background: rgba(0, 0, 0, 0.95);
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid rgba(10, 189, 227, 0.3);
+        backdrop-filter: blur(10px);
+        z-index: 1000;
+        min-width: 180px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        flex-direction: column;
+        align-items: flex-start;
+        width: auto;
+        height: auto;
+    }
+    
+    #user-info.expanded #user-name {
+        font-size: 12px;
+        color: white;
+        margin-left: 4px;
+        white-space: nowrap;
+    }
+    
+    #user-info.expanded .user-role {
+        font-size: 9px;
+        padding: 2px 6px;
+        margin-left: 4px;
+        border-radius: 4px;
+        margin-top: 4px;
+    }
+    
+    #user-info.expanded #logout-btn {
+        padding: 4px 8px;
+        font-size: 10px;
+        height: 28px;
+        margin-top: 6px;
+        margin-left: 4px;
+        border-radius: 4px;
+        background: rgba(255, 107, 107, 0.8);
+        color: white;
+        border: none;
+        cursor: pointer;
+    }
+    
+    #google-login-btn {
+        padding: 4px 8px;
+        font-size: 11px;
+        height: 32px;
+        border-radius: 6px;
+        background: rgba(10, 189, 227, 0.8);
+        color: white;
+        border: none;
+        cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 0;
+        transition: all 0.2s ease;
+    }
+    
+    #google-login-btn:hover {
+        background: rgba(10, 189, 227, 1);
+        transform: translateY(-1px);
+    }
+    
+    #google-login-btn:active {
+        transform: translateY(0) scale(0.95);
+    }
+    
+    /* Restart button styles - Fixed layout shift */
+    #restart-control {
+        display: flex;
+        align-items: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+        pointer-events: none;
+        flex-shrink: 0;
+        width: 72px; /* Fixed width to prevent layout shift */
+    }
+    
+    #restart-control.visible {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
+    
+    #restart-game-btn {
+        padding: 4px 8px;
+        font-size: 11px;
+        height: 32px;
+        background: rgba(255, 69, 0, 0.9);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        width: 100%;
+        /* Better touch target */
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    #restart-game-btn:hover {
+        background: rgba(255, 69, 0, 1);
+        transform: translateY(-1px);
+    }
+    
+    #restart-game-btn:active {
+        transform: translateY(0) scale(0.95);
+    }
+    
+    /* Ensure restart control is clickable */
+    #restart-control.visible {
+        pointer-events: auto !important;
+        z-index: 320;
+    }
+    
+    #restart-game-btn {
+        pointer-events: auto !important;
+    }
+    
+    /* Mobile-optimized dropdown menu */
+    #dropdown-menu {
+        position: absolute;
+        min-width: 140px;
+        max-width: 200px;
+        background: rgba(0, 0, 0, 0.95);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(10, 189, 227, 0.3);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        /* Better positioning for mobile */
+        top: calc(100% + 4px);
+        left: 50%;
+        transform: translateX(-50%);
+        border-radius: 8px;
+        z-index: 500;
+        display: none;
+        flex-direction: column;
+        gap: 2px;
+        padding: 8px;
+        pointer-events: auto;
+    }
+    
+    /* Force show dropdown when menu is active */
+    #menu-button.active #dropdown-menu {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    /* Debug: Add visible background when active for testing */
+    #menu-button.active {
+        background: rgba(10, 189, 227, 0.6) !important;
+    }
+    
+    .menu-item {
+        padding: 10px 12px;
+        font-size: 12px;
+        border-radius: 4px;
+        margin: 2px;
+        /* Better touch targets */
+        min-height: 36px;
+        display: flex;
+        align-items: center;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
+    
+    .menu-item:hover {
+        background: rgba(10, 189, 227, 0.3);
+        transform: none; /* Remove translateY on mobile */
+    }
+    
+    .menu-item:active {
+        background: rgba(10, 189, 227, 0.5);
+        transform: scale(0.95);
+    }
+    
+    /* Touch targets - Updated for better mobile UX */
+    .song-item,
+    .duration-btn,
+    .editor-actions button,
+    .song-controls button {
+        min-height: 48px; /* Larger minimum touch target */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation; /* Prevents zoom on double-tap */
+        /* Add visual feedback for touch */
+        transition: all 0.2s ease;
+    }
+    
+    /* Enhanced hover/active states for better feedback */
+    .song-item:active,
+    .duration-btn:active,
+    .editor-actions button:active,
+    .song-controls button:active {
+        transform: scale(0.95);
+        background: rgba(10, 189, 227, 0.2);
+    }
+    
+    /* Improved scrolling for mobile */
+    .song-list-container,
+    .song-editor,
+    .note-grid {
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+    }
+    
+    /* Better input focus styles for mobile */
+    #song-name:focus,
+    #song-bpm:focus,
+    #roll-length:focus {
+        outline: 2px solid rgba(10, 189, 227, 0.8);
+        outline-offset: 2px;
+        /* Ensure input is visible when keyboard appears */
+        scroll-margin-top: 20px;
+    }
+    
+    /* Handle virtual keyboard on mobile */
+    @media (max-height: 500px) and (orientation: landscape) {
+        /* When keyboard is likely open */
+        .piano-roll-container {
+            max-height: 50vh !important;
+        }
+        
+        .song-list-container {
+            max-height: 30vh !important;
+        }
+    }
+    
+    /* Prevent text selection on UI elements */
+    .song-controls,
+    .editor-actions,
+    .note-controls,
+    .song-list-toggle {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+    }
+    
+    /* Force minimum content height to enable scrolling */
+    .song-manager-content {
+        min-height: calc(100vh - 50px); /* Account for control panel */
+        min-height: calc(100dvh - 50px);
+    }
+    
+    /* Specific mobile height adjustments */
+    @media (max-height: 600px) {
+        /* Very short screens (small phones landscape) */
+        #song-manager {
+            padding-top: 50px !important;
+        }
+        
+        .song-manager-content {
+            padding: 4px !important;
+            gap: 4px !important;
+        }
+        
+        .piano-roll-container {
+            min-height: calc(100vh - 200px) !important;
+            min-height: calc(100dvh - 200px) !important;
+        }
+        
+        .song-list-container {
+            max-height: 30vh !important;
+            max-height: 30dvh !important;
+            padding: 8px !important;
+        }
+    }
+    
+    @media (max-height: 480px) {
+        /* Extra short screens */
+        .song-list-container {
+            max-height: 25vh !important;
+            max-height: 25dvh !important;
+            min-height: 100px !important;
+        }
+        
+        .piano-roll-container {
+            min-height: calc(100vh - 180px) !important;
+            min-height: calc(100dvh - 180px) !important;
+        }
     }
     
     /* Audio analyzer mobile improvements */
     #audio-analyzer {
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
+        padding-top: 60px;
     }
     
     #visualizer-container {
-        min-height: 300px;
+        min-height: 250px;
         overflow: auto;
         -webkit-overflow-scrolling: touch;
     }
@@ -1591,4 +2719,84 @@ button:active:after {
         flex-direction: column;
         gap: 5px;
     }
+}
+
+/* ULTIMATE OVERRIDE: Force dropdown to work on all devices */
+#menu-button.active #dropdown-menu,
+#dropdown-menu {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 10000 !important;
+    pointer-events: auto !important;
+    position: fixed !important;
+    top: 50px !important;
+    left: 10px !important;
+    right: 10px !important;
+    transform: none !important;
+    margin: 0 !important;
+    background: rgba(0, 0, 0, 0.95) !important;
+    border: 2px solid rgba(10, 189, 227, 0.8) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8) !important;
+    max-width: none !important;
+    width: auto !important;
+    padding: 15px !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    /* Override any parent constraints */
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+/* Hide dropdown when not active - mobile */
+@media (max-width: 1024px) {
+    #dropdown-menu {
+        display: none !important;
+    }
+    
+    #menu-button.active #dropdown-menu {
+        display: flex !important;
+    }
+}
+
+/* Force menu items to be clickable and visible */
+.menu-item {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    display: flex !important;
+    padding: 12px 16px !important;
+    color: white !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-radius: 6px !important;
+    transition: all 0.2s ease !important;
+    font-size: 14px !important;
+    text-align: center !important;
+    border: 2px solid rgba(10, 189, 227, 0.5) !important;
+    min-height: 48px !important;
+    align-items: center !important;
+    justify-content: center !important;
+    /* Mobile touch improvements */
+    -webkit-tap-highlight-color: rgba(10, 189, 227, 0.3) !important;
+    touch-action: manipulation !important;
+    user-select: none !important;
+    /* Ensure clickable */
+    position: relative !important;
+    z-index: 11000 !important;
+    /* Better visual feedback */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+    margin-bottom: 4px !important;
+    font-weight: 500 !important;
+}
+
+.menu-item:hover,
+.menu-item:active {
+    background: rgba(10, 189, 227, 0.5) !important;
+    transform: scale(0.95) !important;
+}
+
+/* Debug: Visual feedback when menu is active */
+#menu-button.active {
+    background: rgba(255, 0, 0, 0.8) !important;
+    border: 2px solid red !important;
 } 

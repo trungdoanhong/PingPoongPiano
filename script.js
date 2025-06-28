@@ -78,13 +78,14 @@ window.onload = function() {
         'c7': 2093.00
     };
     
-    // Happy Birthday song sequence
-    const happyBirthdaySong = [
-        ['c5', 0.5], ['c5', 0.5], ['d5', 1], ['c5', 1], ['f5', 1], ['e5', 2],
-        ['c5', 0.5], ['c5', 0.5], ['d5', 1], ['c5', 1], ['g5', 1], ['f5', 2],
-        ['c5', 0.5], ['c5', 0.5], ['c6', 1], ['a5', 1], ['f5', 1], ['e5', 1], ['d5', 1],
-        ['a5', 0.5], ['a5', 0.5], ['a5', 1], ['f5', 1], ['g5', 1], ['f5', 2]
-    ];
+    // Current game song - will be loaded from database
+    let currentGameSong = [];
+    let selectedSongForGame = null;
+    
+    // Game timing for absolute positioning
+    let gameStartTime = 0;
+    let timePerUnit = 125; // Default timing per unit (16th note at 120 BPM: 60000/120/4 = 125ms)
+    let lastSpawnTime = 0; // Track last note spawn time
     
     // Get DOM elements
     const gameBoard = document.getElementById('game-board');
@@ -97,7 +98,7 @@ window.onload = function() {
     const gameOverScreen = document.getElementById('game-over');
     const startButton = document.getElementById('start-button');
     const restartButton = document.getElementById('restart-button');
-    const fullscreenHint = document.getElementById('fullscreen-hint');
+    const fullscreenBtn = document.getElementById('fullscreen-btn');
     
     // Speed control
     const speedDownBtn = document.getElementById('speed-down');
@@ -109,9 +110,101 @@ window.onload = function() {
     const marginUpBtn = document.getElementById('margin-up');
     const marginValue = document.getElementById('margin-value');
     
+    // Restart control
+    const restartControl = document.getElementById('restart-control');
+    const restartGameBtn = document.getElementById('restart-game-btn');
+    
     // Menu and mode elements
     const menuItems = document.querySelectorAll('.menu-item');
     const menuButton = document.getElementById('menu-button');
+    console.log("Menu button element:", menuButton);
+    
+    // Debug function to test dropdown
+    window.debugDropdown = function() {
+        console.log("=== DROPDOWN DEBUG ===");
+        const menuBtn = document.getElementById('menu-button');
+        const dropdown = document.getElementById('dropdown-menu');
+        
+        console.log("Menu button:", menuBtn);
+        console.log("Dropdown:", dropdown);
+        
+        if (menuBtn && dropdown) {
+            console.log("Both elements exist, forcing dropdown show...");
+            menuBtn.classList.add('active');
+            dropdown.style.display = 'flex';
+            dropdown.style.visibility = 'visible';
+            dropdown.style.opacity = '1';
+            dropdown.style.zIndex = '9999';
+            dropdown.style.background = 'red';
+            dropdown.style.position = 'fixed';
+            dropdown.style.top = '60px';
+            dropdown.style.left = '10px';
+            dropdown.style.right = '10px';
+            console.log("Dropdown should now be visible!");
+        } else {
+            console.error("Elements missing!");
+        }
+    };
+    
+    // Add temporary test button for mobile debugging
+    window.addEventListener('load', function() {
+        setTimeout(() => {
+            const testBtn = document.createElement('button');
+            testBtn.innerText = 'TEST DROPDOWN';
+            testBtn.style.cssText = `
+                position: fixed;
+                top: 100px;
+                right: 10px;
+                z-index: 10000;
+                background: red;
+                color: white;
+                padding: 10px;
+                border: none;
+                border-radius: 5px;
+                font-size: 14px;
+                cursor: pointer;
+            `;
+            testBtn.onclick = function() {
+                console.log("Test button clicked!");
+                window.debugDropdown();
+            };
+            document.body.appendChild(testBtn);
+            
+            // Add test menu item button
+            const testMenuBtn = document.createElement('button');
+            testMenuBtn.innerText = 'TEST MENU ITEMS';
+            testMenuBtn.style.cssText = `
+                position: fixed;
+                top: 150px;
+                right: 10px;
+                z-index: 10000;
+                background: blue;
+                color: white;
+                padding: 10px;
+                border: none;
+                border-radius: 5px;
+                font-size: 14px;
+                cursor: pointer;
+            `;
+            testMenuBtn.onclick = function() {
+                console.log("Testing menu items...");
+                const menuItems = document.querySelectorAll('.menu-item');
+                console.log("Found menu items:", menuItems.length);
+                menuItems.forEach((item, index) => {
+                    console.log(`Item ${index}:`, item.getAttribute('data-mode'), item);
+                    console.log(`Item ${index} styles:`, window.getComputedStyle(item));
+                });
+                // Force click first menu item
+                if (menuItems.length > 0) {
+                    console.log("Force clicking first menu item...");
+                    menuItems[0].click();
+                }
+            };
+            document.body.appendChild(testMenuBtn);
+            
+            console.log("Test buttons added to page");
+        }, 2000);
+    });
     const controlsContainer = document.getElementById('controls-container');
     const audioAnalyzer = document.getElementById('audio-analyzer');
     const songManager = document.getElementById('song-manager');
@@ -467,6 +560,14 @@ window.onload = function() {
             userRole.textContent = role.toUpperCase();
             userRole.className = `user-role ${role}`;
             
+            // Initialize collapsed state for mobile
+            if (window.innerWidth <= 1024) {
+                userInfo.classList.add('collapsed');
+                userInfo.classList.remove('expanded');
+            } else {
+                userInfo.classList.remove('collapsed', 'expanded');
+            }
+            
             // Show force admin button if user should be admin but isn't
             const forceAdminBtn = document.getElementById('force-admin-btn');
             if (user.email === window.firebaseApp.ADMIN_EMAIL && role !== 'admin') {
@@ -542,7 +643,13 @@ window.onload = function() {
     
     // Toggle the menu dropdown
     function toggleMenuDropdown() {
+        console.log("🔽 toggleMenuDropdown called");
+        console.log("Menu button before toggle:", menuButton.classList.contains('active'));
+        
         menuButton.classList.toggle('active');
+        
+        console.log("Menu button after toggle:", menuButton.classList.contains('active'));
+        console.log("Dropdown element:", document.getElementById('dropdown-menu'));
         
         // Close dropdown when clicking outside
         if (menuButton.classList.contains('active')) {
@@ -631,6 +738,15 @@ window.onload = function() {
             speedDownBtn.parentElement.style.display = 'flex';
             marginDownBtn.parentElement.style.display = 'flex';
             
+            // Show restart button only if game is running - fixed layout shift
+            if (restartControl) {
+                if (isGameRunning) {
+                    restartControl.classList.add('visible');
+                } else {
+                    restartControl.classList.remove('visible');
+                }
+            }
+            
             // Remove analyzer mode class
             controlsContainer.classList.remove('analyzer-mode');
             
@@ -658,6 +774,9 @@ window.onload = function() {
             scoreElement.parentElement.style.display = 'none';
             speedDownBtn.parentElement.style.display = 'none';
             marginDownBtn.parentElement.style.display = 'none';
+            if (restartControl) {
+                restartControl.classList.remove('visible');
+            }
             
             // Add analyzer mode class to align menu button to right
             controlsContainer.classList.add('analyzer-mode');
@@ -685,6 +804,9 @@ window.onload = function() {
             scoreElement.parentElement.style.display = 'none';
             speedDownBtn.parentElement.style.display = 'none';
             marginDownBtn.parentElement.style.display = 'none';
+            if (restartControl) {
+                restartControl.classList.remove('visible');
+            }
             
             // Add analyzer mode class to align menu button to right
             controlsContainer.classList.add('analyzer-mode');
@@ -696,6 +818,23 @@ window.onload = function() {
             
             // Initialize song manager if not already done
             initSongManager();
+            
+            // Test note grid setup with delay
+            setTimeout(() => {
+                const testNoteGrid = document.querySelector('.note-grid');
+                console.log("Testing note grid after mode switch:", testNoteGrid);
+                if (testNoteGrid) {
+                    console.log("Note grid found! Setting up direct test listener");
+                    // Add a direct test listener
+                    testNoteGrid.addEventListener('click', function(e) {
+                        console.log("🎯 DIRECT TEST CLICK EVENT TRIGGERED on note grid!");
+                        console.log("Event target:", e.target);
+                        console.log("Event coordinates:", e.clientX, e.clientY);
+                    });
+                } else {
+                    console.error("❌ Note grid not found after mode switch!");
+                }
+            }, 1000);
         } else if (mode === 'admin') {
             // Switch to admin panel (only for admin users)
             if (currentUserRole !== 'admin') {
@@ -713,6 +852,9 @@ window.onload = function() {
             scoreElement.parentElement.style.display = 'none';
             speedDownBtn.parentElement.style.display = 'none';
             marginDownBtn.parentElement.style.display = 'none';
+            if (restartControl) {
+                restartControl.classList.remove('visible');
+            }
             
             // Add analyzer mode class
             controlsContainer.classList.add('analyzer-mode');
@@ -962,6 +1104,20 @@ window.onload = function() {
         updateMargins();
     });
     
+    // Restart game event listener
+    if (restartGameBtn) {
+        restartGameBtn.addEventListener('click', function() {
+            if (isGameRunning) {
+                // Stop current game
+                endGame();
+                // Start new game immediately
+                setTimeout(() => {
+                    startGame();
+                }, 100);
+            }
+        });
+    }
+    
     function updateMargins() {
         marginValue.textContent = sideMargin + '%';
         gameBoard.style.marginLeft = sideMargin + '%';
@@ -990,12 +1146,26 @@ window.onload = function() {
     // Auto request fullscreen when starting game - event listeners set in initializeApp
     
     function startGame() {
-        console.log("Starting game");
+        // Check if a song is selected
+        if (currentGameSong.length === 0) {
+            showNotification('Vui lòng chọn một bài hát từ Song Manager trước khi chơi!', 'warning');
+            switchMode('song-manager');
+            return;
+        }
+        
         score = 0;
         tileSpeed = parseFloat(speedValue.textContent);
         scoreElement.textContent = score;
         isGameRunning = true;
-        songPosition = 0;
+        
+        // Initialize absolute timing
+        gameStartTime = Date.now();
+        lastSpawnTime = 0; // Reset spawn timing
+        
+        // Reset all spawned flags
+        currentGameSong.forEach(note => {
+            note.spawned = false;
+        });
         
         document.querySelectorAll('.tile').forEach(tile => tile.remove());
         document.querySelectorAll('.particle').forEach(p => p.remove());
@@ -1006,6 +1176,11 @@ window.onload = function() {
         
         startScreen.style.display = 'none';
         gameOverScreen.style.display = 'none';
+        
+        // Show restart button during game
+        if (restartControl) {
+            restartControl.classList.add('visible');
+        }
         
         // Switch to game mode if in analyzer mode
         if (currentMode !== 'game') {
@@ -1020,6 +1195,11 @@ window.onload = function() {
         isGameRunning = false;
         finalScoreElement.textContent = score;
         gameOverScreen.style.display = 'flex';
+        
+        // Hide restart button when game ends
+        if (restartControl) {
+            restartControl.classList.remove('visible');
+        }
         
         activeAudio.forEach(audio => {
             audio.pause();
@@ -1069,10 +1249,8 @@ window.onload = function() {
             }
         });
         
-        if (timestamp - lastTileTime > getNextTileGap()) {
-            lastTileTime = timestamp;
-            createNewTileFromSong();
-        }
+        // Check and spawn notes based on absolute timing
+        checkAndSpawnNotes();
         
         // Update particles
         updateParticles();
@@ -1080,42 +1258,41 @@ window.onload = function() {
         gameLoop = requestAnimationFrame(update);
     }
     
-    function getNextTileGap() {
-        if (songPosition < happyBirthdaySong.length) {
-            const [_, duration] = happyBirthdaySong[songPosition];
+    function checkAndSpawnNotes() {
+        if (currentGameSong.length === 0) return;
+        
+        const currentTime = Date.now() - gameStartTime;
+        const fallTime = 3000; // Time for note to fall from top to bottom (3 seconds)
+        const gameStartOffset = 2000; // Reduced offset for better synchronization
+        
+        // Check all unspawned notes
+        currentGameSong.forEach(noteData => {
+            if (noteData.spawned) return;
             
-            let gap = minTileGap * (duration * 2.5);
+            // Calculate when this note should be played (hit at bottom)
+            // Position is in grid units (16th notes), convert to milliseconds
+            const notePlayTime = noteData.position * timePerUnit + gameStartOffset;
             
-            if (songPosition % 6 === 0) {
-                gap += minTileGap * 1.5;
+            // Calculate when we should spawn it (fallTime before it should be played)
+            const shouldSpawnAt = notePlayTime - fallTime;
+            
+            // Only spawn if we've reached the spawn time
+            if (currentTime >= shouldSpawnAt) {
+                spawnNote(noteData);
+                noteData.spawned = true;
+                
+                // Debug logging
+                console.log(`Spawned note ${noteData.note} at position ${noteData.position}, duration ${noteData.duration}, playTime: ${notePlayTime}ms`);
             }
-            
-            if (songPosition % 12 === 0 && songPosition > 0) {
-                gap += minTileGap * 2;
-            }
-            
-            return gap;
-        }
-        return minTileGap;
+        });
     }
     
-    function createNewTileFromSong() {
-        if (songPosition >= happyBirthdaySong.length) {
-            songPosition = 0;
-        }
-        
-        const [note, duration] = happyBirthdaySong[songPosition];
-        lastNoteDuration = duration;
-        songPosition++;
-        
-        const columnIndex = keyOrder.indexOf(note);
+    function spawnNote(noteData) {
+        const columnIndex = keyOrder.indexOf(noteData.note);
         if (columnIndex === -1) return;
         
         const columns = document.querySelectorAll('.column');
-        if (columnIndex >= columns.length) {
-            console.error("Column index out of range:", columnIndex, columns.length);
-            return;
-        }
+        if (columnIndex >= columns.length) return;
         
         const column = columns[columnIndex];
         
@@ -1123,13 +1300,33 @@ window.onload = function() {
         tile.className = 'tile';
         tile.style.bottom = '100%';
         
-        // Fix: Make tile height proportional to duration for consistency with Song Manager
-        // Base height of 15% for duration 1.0, proportional scaling
-        const baseHeight = 15; // Base height percentage for duration 1.0
-        const tileHeight = Math.max(5, baseHeight * duration); // Minimum 5%, proportional to duration
+        // Calculate tile height based on actual duration timing
+        const fallTime = 3000; // Time for tile to fall from top to bottom (ms)
+        const durationInMs = noteData.duration * timePerUnit; // Convert duration to milliseconds
+        
+        // Calculate height as percentage of fall time, with reasonable bounds
+        const minHeightPercent = 3; // Minimum 3% height
+        const maxHeightPercent = 25; // Maximum 25% height
+        const calculatedHeight = (durationInMs / fallTime) * 100;
+        const tileHeight = Math.max(minHeightPercent, Math.min(maxHeightPercent, calculatedHeight));
+        
         tile.style.height = `${tileHeight}%`;
         
+        // Store duration data for debugging
+        tile.setAttribute('data-duration', noteData.duration);
+        tile.setAttribute('data-duration-ms', durationInMs);
+        
         column.appendChild(tile);
+    }
+
+    
+    // Legacy functions - no longer used
+    function getNextTileGap() {
+        return minTileGap;
+    }
+    
+    function createNewTileFromSong() {
+        // No longer used - replaced by absolute timing system
     }
     
     function playNote(noteKey) {
@@ -1224,7 +1421,10 @@ window.onload = function() {
     
     // Hide fullscreen button on iOS (not supported in Safari)
     if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
-        fullscreenHint.style.display = 'none';
+        const fullscreenControl = document.getElementById('fullscreen-control');
+        if (fullscreenControl) {
+            fullscreenControl.style.display = 'none';
+        }
     }
 
     // Kiểm tra xem localStorage có khả dụng không
@@ -1266,19 +1466,45 @@ window.onload = function() {
         // Force initial orientation check
         window.dispatchEvent(new Event('resize'));
         
-        // Setup menu button click event
-        menuButton.addEventListener('click', function(e) {
+        // Setup menu button click event - both click and touch
+        function handleMenuClick(e) {
+            console.log("🖱️ Menu button clicked/touched!");
+            console.log("Event type:", e.type);
+            console.log("Touch event?", e.touches ? "YES" : "NO");
+            e.preventDefault();
             e.stopPropagation();
             toggleMenuDropdown();
-        });
+        }
         
-        // Setup menu click events
+        menuButton.addEventListener('click', handleMenuClick);
+        menuButton.addEventListener('touchstart', handleMenuClick, { passive: false });
+        menuButton.addEventListener('touchend', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }, { passive: false });
+        
+        // Setup menu click events - both click and touch
         menuItems.forEach(item => {
-            item.addEventListener('click', (e) => {
+            function handleMenuItemClick(e) {
+                console.log("🎯 Menu item clicked:", item.getAttribute('data-mode'));
+                console.log("Event type:", e.type);
+                e.preventDefault();
                 e.stopPropagation();
                 const mode = item.getAttribute('data-mode');
                 switchMode(mode);
-            });
+                // Close dropdown after selection
+                menuButton.classList.remove('active');
+            }
+            
+            // Add both click and touch events
+            item.addEventListener('click', handleMenuItemClick);
+            item.addEventListener('touchstart', handleMenuItemClick, { passive: false });
+            item.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }, { passive: false });
+            
+            console.log("Event listeners added to menu item:", item.getAttribute('data-mode'));
         });
         
         // Set initial menu button text
@@ -1375,16 +1601,42 @@ window.onload = function() {
         
         // Set up start and restart button listeners
         startButton.addEventListener('click', function() {
-            startGame();
-            toggleFullScreen();
+            // Go to Song Manager instead of starting game directly
+            switchMode('song-manager');
         });
         
         restartButton.addEventListener('click', startGame);
-        fullscreenHint.addEventListener('click', toggleFullScreen);
+        fullscreenBtn.addEventListener('click', toggleFullScreen);
         
         console.log("App initialized successfully");
     }
     
+    // Setup user panel toggle
+    if (userInfo) {
+        userInfo.addEventListener('click', function(e) {
+            // Only toggle on mobile
+            if (window.innerWidth <= 1024) {
+                e.stopPropagation(); // Prevent event bubbling
+                
+                if (userInfo.classList.contains('collapsed')) {
+                    userInfo.classList.remove('collapsed');
+                    userInfo.classList.add('expanded');
+                } else {
+                    userInfo.classList.add('collapsed');
+                    userInfo.classList.remove('expanded');
+                }
+            }
+        });
+        
+        // Close expanded user panel when clicking outside
+        document.addEventListener('click', function(e) {
+            if (userInfo.classList.contains('expanded') && !userInfo.contains(e.target)) {
+                userInfo.classList.add('collapsed');
+                userInfo.classList.remove('expanded');
+            }
+        });
+    }
+
     // Initialize the app
     initializeApp();
     
@@ -1399,6 +1651,7 @@ window.onload = function() {
     // Removed serverAvailable - now using Firebase permission checking instead
     let isLoadingSongs = false; // Biến theo dõi trạng thái đang tải bài hát
     let forcedSaveMode = 'local'; // Default to local storage, 'local' = force local, 'server' = force server
+    let pianoRollLength = 32; // Default piano roll length in bars (4 beats per bar = 128 grid units)
 
     // Removed API_URL - now using Firebase Firestore instead of REST API
     
@@ -1457,6 +1710,7 @@ window.onload = function() {
     const durationBtns = document.querySelectorAll('.duration-btn');
     const pianoKeysContainer = document.querySelector('.piano-keys');
     const noteGrid = document.querySelector('.note-grid');
+    const rollLengthInput = document.getElementById('roll-length');
     
     // Save mode controls
     const saveModeRadios = document.getElementsByName('save-mode');
@@ -1553,9 +1807,6 @@ window.onload = function() {
             // Initialize UI elements
             initializeUIElements();
             
-            // Add the refresh button
-            addRefreshButton();
-            
             // Add fix button for debug
             addFixButton();
             
@@ -1586,133 +1837,7 @@ window.onload = function() {
         }
     }
     
-    // Add refresh button and cleanup button
-    function addRefreshButton() {
-        const songListContainer = document.querySelector('.song-list-container');
-        
-        if (!songListContainer) {
-            console.error("Không tìm thấy song-list-container");
-            return;
-        }
-        
-        // Xóa button cũ nếu có
-        const existingRefreshButton = songListContainer.querySelector('.refresh-button');
-        if (existingRefreshButton) {
-            existingRefreshButton.remove();
-        }
-        
-        const existingCleanupButton = songListContainer.querySelector('.cleanup-button');
-        if (existingCleanupButton) {
-            existingCleanupButton.remove();
-        }
-        
-        // Tạo container cho các nút
-        const buttonContainer = document.createElement('div');
-        buttonContainer.style.display = 'flex';
-        buttonContainer.style.gap = '10px';
-        buttonContainer.style.padding = '10px';
-        buttonContainer.style.justifyContent = 'center';
-        
-        // Tạo nút làm mới
-        const refreshButton = document.createElement('button');
-        refreshButton.className = 'refresh-button';
-        refreshButton.textContent = '🔄 Làm mới';
-        refreshButton.style.padding = '8px 15px';
-        refreshButton.style.background = 'rgba(10, 189, 227, 0.5)';
-        refreshButton.style.border = 'none';
-        refreshButton.style.borderRadius = '5px';
-        refreshButton.style.color = 'white';
-        refreshButton.style.cursor = 'pointer';
-        refreshButton.style.fontSize = '12px';
-        refreshButton.style.fontWeight = 'bold';
-        
-        // Tạo nút dọn dẹp
-        const cleanupButton = document.createElement('button');
-        cleanupButton.className = 'cleanup-button';
-        cleanupButton.textContent = '🧹 Dọn dẹp';
-        cleanupButton.style.padding = '8px 15px';
-        cleanupButton.style.background = 'rgba(255, 165, 0, 0.5)';
-        cleanupButton.style.border = 'none';
-        cleanupButton.style.borderRadius = '5px';
-        cleanupButton.style.color = 'white';
-        cleanupButton.style.cursor = 'pointer';
-        cleanupButton.style.fontSize = '12px';
-        cleanupButton.style.fontWeight = 'bold';
-        
-        // Tạo filter dropdown cho storage type
-        const storageFilter = document.createElement('select');
-        storageFilter.className = 'storage-filter';
-        storageFilter.innerHTML = `
-            <option value="all">Tất cả</option>
-            <option value="server">☁️ Firebase</option>
-            <option value="local">💾 Local</option>
-            <option value="temporary">⚠️ Chưa lưu</option>
-        `;
-        storageFilter.style.padding = '6px 10px';
-        storageFilter.style.background = 'rgba(108, 117, 125, 0.5)';
-        storageFilter.style.border = 'none';
-        storageFilter.style.borderRadius = '5px';
-        storageFilter.style.color = 'white';
-        storageFilter.style.cursor = 'pointer';
-        storageFilter.style.fontSize = '12px';
-        
-        // Sự kiện cho nút làm mới
-        refreshButton.addEventListener('click', () => {
-            refreshButton.textContent = '🔄 Đang tải...';
-            refreshButton.disabled = true;
-            
-            loadSongsWrapper(true).finally(() => {
-                refreshButton.textContent = '🔄 Làm mới';
-                refreshButton.disabled = false;
-            });
-        });
-        
-        // Sự kiện cho nút dọn dẹp
-        cleanupButton.addEventListener('click', () => {
-                    if (currentUser && window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole)) {
-            cleanupButton.textContent = '🧹 Đang dọn...';
-            cleanupButton.disabled = true;
-            
-            // Tải lại dữ liệu và tự động dọn dẹp
-            loadSongsWrapper(true).finally(() => {
-                cleanupButton.textContent = '🧹 Dọn dẹp';
-                cleanupButton.disabled = false;
-            });
-        } else {
-            showNotification('Chỉ có thể dọn dẹp khi có quyền admin/moderator', 'warning');
-        }
-        });
-        
-        // Sự kiện cho filter storage type
-        storageFilter.addEventListener('change', (e) => {
-            filterSongsByStorageType(e.target.value);
-        });
-        
-        // Hover effects
-        refreshButton.addEventListener('mouseenter', () => {
-            refreshButton.style.background = 'rgba(10, 189, 227, 0.7)';
-        });
-        refreshButton.addEventListener('mouseleave', () => {
-            refreshButton.style.background = 'rgba(10, 189, 227, 0.5)';
-        });
-        
-        cleanupButton.addEventListener('mouseenter', () => {
-            cleanupButton.style.background = 'rgba(255, 165, 0, 0.7)';
-        });
-        cleanupButton.addEventListener('mouseleave', () => {
-            cleanupButton.style.background = 'rgba(255, 165, 0, 0.5)';
-        });
-        
-        // Thêm các nút vào container
-        buttonContainer.appendChild(refreshButton);
-        buttonContainer.appendChild(cleanupButton);
-        buttonContainer.appendChild(storageFilter);
-        
-        // Thêm vào đầu song list container
-        songListContainer.insertBefore(buttonContainer, songListContainer.firstChild);
-        
-        console.log("Đã thêm nút làm mới và dọn dẹp");
-    }
+
     
     // Hàm mới để kiểm tra dung lượng localStorage
     function checkLocalStorageSize() {
@@ -2468,7 +2593,7 @@ window.onload = function() {
         
         // For Firebase songs, check if we need to reload from server
         if (currentUser && window.firebaseApp && window.firebaseApp.canSaveToServer(currentUserRole) && 
-            !songId.startsWith('temp_') && songId !== 'default-happy-birthday') {
+            !songId.startsWith('temp_')) {
             
             console.log("Loading song from Firebase:", songId);
             loadSongFromFirebase(songId, loadingIndicator);
@@ -2539,6 +2664,21 @@ window.onload = function() {
         }
         if (bpmInput) {
             bpmInput.value = currentSong.bpm || 120;
+        }
+        
+        // Calculate required piano roll length based on song notes
+        if (currentSong.notes && currentSong.notes.length > 0) {
+            const lastNoteEnd = Math.max(...currentSong.notes.map(note => note.position + note.duration));
+            const requiredBars = Math.ceil(lastNoteEnd / 4); // 4 beats per bar
+            const newRollLength = Math.max(16, Math.min(128, requiredBars + 4)); // Add 4 bars padding
+            
+            if (newRollLength !== pianoRollLength) {
+                pianoRollLength = newRollLength;
+                if (rollLengthInput) {
+                    rollLengthInput.value = pianoRollLength;
+                }
+                createGridLines(); // Recreate grid with new length
+            }
         }
         
         // Kiểm tra cấu trúc notes
@@ -2742,14 +2882,29 @@ window.onload = function() {
         if (noteIndex === -1) return;
         
         const keyHeight = 20; // Height of each note row
-        const unitWidth = 20; // Width of each grid unit (giảm từ 40 xuống 20)
+        const unitWidth = 20; // Width of each grid unit
+        
+        // Simple duplicate check - only exact matches
+        const noteGrid = document.querySelector('.note-grid');
+        if (!noteGrid) return;
+        
+        const existingNotes = noteGrid.querySelectorAll('.grid-note');
+        for (let existingNote of existingNotes) {
+            const existingPosition = parseFloat(existingNote.getAttribute('data-position'));
+            const existingNoteValue = existingNote.getAttribute('data-note');
+            
+            if (existingNoteValue === note && existingPosition === position) {
+                console.log("Exact duplicate note detected, skipping creation");
+                return; // Don't create duplicate note
+            }
+        }
         
         // Create the note element
         const noteElement = document.createElement('div');
         noteElement.className = 'grid-note';
         noteElement.style.top = `${noteIndex * keyHeight}px`;
-        noteElement.style.left = `${position * unitWidth}px`;
-        noteElement.style.width = `${duration * unitWidth}px`;
+        noteElement.style.left = `${position * (unitWidth / 4)}px`; // Position in 16th note units
+        noteElement.style.width = `${duration * (unitWidth / 4)}px`; // Duration in 16th note units
         noteElement.style.position = 'absolute';
         
         // Add data attributes
@@ -2874,6 +3029,7 @@ window.onload = function() {
                 
                 // Tính toán offset từ điểm click đến góc note
                 const noteRect = this.getBoundingClientRect();
+                const gridRect = noteGrid.getBoundingClientRect();
                 dragOffsetX = e.clientX - noteRect.left;
                 dragOffsetY = e.clientY - noteRect.top;
                 
@@ -2931,6 +3087,7 @@ window.onload = function() {
             
             // Tính toán offset từ điểm chạm đến góc note
             const noteRect = this.getBoundingClientRect();
+            const gridRect = noteGrid.getBoundingClientRect();
             dragOffsetX = touch.clientX - noteRect.left;
             dragOffsetY = touch.clientY - noteRect.top;
             
@@ -2968,14 +3125,14 @@ window.onload = function() {
                 // Tính toán vị trí mới dựa trên vị trí chạm và offset
                 const noteGridRect = noteGrid.getBoundingClientRect();
                 
-                // Tính toán vị trí chạm tương đối so với lưới
-                const touchX = touch.clientX - noteGridRect.left - dragOffsetX;
-                const touchY = touch.clientY - noteGridRect.top;
+                // Tính toán vị trí chạm tương đối so với lưới, accounting for scroll
+                const touchX = touch.clientX - noteGridRect.left - dragOffsetX + noteGrid.scrollLeft;
+                const touchY = touch.clientY - noteGridRect.top + noteGrid.scrollTop;
                 
                 // Tính toán vị trí mới theo grid (làm tròn đến 0.5 đơn vị)
                 const unitWidth = 20;
                 const keyHeight = 20;
-                const newPosition = Math.max(0, Math.floor((touchX / unitWidth) * 2) / 2);
+                const newPosition = Math.max(0, Math.floor((touchX / (unitWidth / 4)) * 4) / 4);
                 
                 // Tính toán hàng mới
                 const newRowIndex = Math.floor(touchY / keyHeight);
@@ -3059,108 +3216,7 @@ window.onload = function() {
         });
     }
     
-    // Filter songs by storage type
-    function filterSongsByStorageType(filterType) {
-        const songItems = document.querySelectorAll('.song-item');
-        let visibleCount = 0;
-        
-        songItems.forEach(item => {
-            const storageType = item.getAttribute('data-storage-type');
-            
-            if (filterType === 'all' || storageType === filterType || 
-                (filterType === 'server' && (storageType === 'server' || storageType === 'server-readonly'))) {
-                item.style.display = 'block';
-                visibleCount++;
-            } else {
-                item.style.display = 'none';
-            }
-        });
-        
-        // Hiển thị thông báo kết quả filter
-        const filterMessage = `Hiển thị ${visibleCount} bài hát${filterType !== 'all' ? ' - ' + getFilterLabel(filterType) : ''}`;
-        showNotification(filterMessage, 'info');
-        
-        console.log(`Filtered songs: ${visibleCount} visible, filter: ${filterType}`);
-    }
-    
-    // Get filter label for display
-    function getFilterLabel(filterType) {
-        switch(filterType) {
-            case 'server': return 'Chỉ bài hát từ Firebase';
-            case 'local': return 'Chỉ bài hát Local';
-            case 'temporary': return 'Chỉ bài hát chưa lưu';
-            default: return 'Tất cả bài hát';
-        }
-    }
-    
-    // Display storage statistics
-    function displayStorageStats() {
-        if (!songs || songs.length === 0) return;
-        
-        // Count songs by storage type
-        const stats = {
-            server: 0,
-            local: 0,
-            temporary: 0,
-            readonly: 0
-        };
-        
-        songs.forEach(song => {
-            const storageInfo = getSongStorageInfo(song);
-            switch(storageInfo.type) {
-                case 'server':
-                    stats.server++;
-                    break;
-                case 'server-readonly':
-                    stats.readonly++;
-                    break;
-                case 'temporary':
-                    stats.temporary++;
-                    break;
-                case 'local':
-                default:
-                    stats.local++;
-                    break;
-            }
-        });
-        
-        // Create or update stats display
-        let statsElement = document.getElementById('storage-stats');
-        if (!statsElement) {
-            statsElement = document.createElement('div');
-            statsElement.id = 'storage-stats';
-            statsElement.style.cssText = `
-                padding: 8px 12px;
-                margin: 10px 0;
-                background: rgba(0, 0, 0, 0.3);
-                border-radius: 5px;
-                font-size: 11px;
-                color: rgba(255, 255, 255, 0.8);
-                display: flex;
-                justify-content: space-around;
-                text-align: center;
-            `;
-            
-            // Add to song list container
-            const songListContainer = document.querySelector('.song-list-container');
-            if (songListContainer) {
-                const buttonContainer = songListContainer.querySelector('div');
-                if (buttonContainer) {
-                    songListContainer.insertBefore(statsElement, buttonContainer.nextSibling);
-                }
-            }
-        }
-        
-        // Update stats content
-        statsElement.innerHTML = `
-            <div>☁️ Firebase: ${stats.server}</div>
-            <div>💾 Local: ${stats.local}</div>
-            ${stats.temporary > 0 ? `<div>⚠️ Chưa lưu: ${stats.temporary}</div>` : ''}
-            ${stats.readonly > 0 ? `<div>🌐 View: ${stats.readonly}</div>` : ''}
-        `;
-        
-        console.log('[Storage Stats]', stats);
-    }
+
 
     // Get song storage information
     function getSongStorageInfo(song) {
@@ -3222,27 +3278,45 @@ window.onload = function() {
 
     // Add a note at the clicked position
     function addNoteAtPosition(e) {
+        console.log("addNoteAtPosition called with event:", e);
+        
+        // Check if we just finished dragging/resizing - if so, don't create note
+        if (clickProcessedOnNote) {
+            console.log("Ignoring click - just finished dragging/resizing");
+            return;
+        }
+        
         // Get the grid coordinates
         const grid = document.querySelector('.note-grid');
-        if (!grid) return;
+        if (!grid) {
+            console.error("Grid not found in addNoteAtPosition");
+            return;
+        }
+        
+        console.log("Grid found:", grid);
         
         const rect = grid.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        // Calculate the mouse position relative to the grid, accounting for scroll
+        const x = e.clientX - rect.left + grid.scrollLeft;
+        const y = e.clientY - rect.top + grid.scrollTop;
         
         // Calculate grid position
         const keyHeight = 20; // Height of each note row
-        const unitWidth = 20; // Width of each grid unit (giảm từ 40 xuống 20)
+        const unitWidth = 20; // Width of each grid unit
         
         const noteIndex = Math.floor(y / keyHeight);
-        // Làm tròn chính xác đến 0.5 để cho phép đặt note ở nửa vị trí
-        const position = Math.floor(x / (unitWidth / 2)) * 0.5;
+        // Position in 16th note units (0.25 precision for finer control)
+        const position = Math.floor(x / (unitWidth / 4)) * 0.25;
         
         // Get the note based on index
         const reversedKeyOrder = [...keyOrder].reverse();
-        if (noteIndex >= reversedKeyOrder.length) return;
+        if (noteIndex >= reversedKeyOrder.length || noteIndex < 0) {
+            console.log("Invalid note index:", noteIndex, "keyOrder length:", reversedKeyOrder.length);
+            return;
+        }
         
         const note = reversedKeyOrder[noteIndex];
+        console.log("Creating note:", note, "at position:", position, "duration:", currentNoteDuration);
         
         // Create note data
         const noteData = {
@@ -3253,6 +3327,13 @@ window.onload = function() {
         
         // Add to grid
         addNoteToGrid(noteData);
+        
+        // Add to current song if editing
+        if (currentSong) {
+            currentSong.notes = currentSong.notes || [];
+            currentSong.notes.push(noteData);
+            console.log("Added note to currentSong:", noteData);
+        }
         
         // Play the note
         playNote(note);
@@ -3292,10 +3373,6 @@ window.onload = function() {
             // Sắp xếp bài hát theo thời gian tạo (nếu có)
             try {
                 songs.sort((a, b) => {
-                    // Luôn giữ bài hát mặc định ở đầu
-                    if (a.id === 'default-happy-birthday') return -1;
-                    if (b.id === 'default-happy-birthday') return 1;
-                    
                     // Nếu có timestamp trong ID, sử dụng để sắp xếp
                     if (a.id && b.id) {
                         const aTime = a.id.split('_')[1];
@@ -3343,9 +3420,6 @@ window.onload = function() {
                     // Tạo phần tử bài hát
                     const songItem = document.createElement('div');
                     songItem.className = 'song-item';
-                    if (song.id === 'default-happy-birthday') {
-                        songItem.classList.add('default-song');
-                    }
                     
                     // Đánh dấu bài hát đang được chỉnh sửa
                     if (currentSong && song.id === currentSong.id) {
@@ -3370,7 +3444,7 @@ window.onload = function() {
                         <div class="song-actions">
                             ${storageInfo.type !== 'server-readonly' ? '<button class="edit-song-btn">Edit</button>' : ''}
                             <button class="play-song-btn">Play</button>
-                            ${(song.id !== 'default-happy-birthday' && storageInfo.type !== 'server-readonly') ? '<button class="delete-song-btn">Delete</button>' : ''}
+                            ${storageInfo.type !== 'server-readonly' ? '<button class="delete-song-btn">Delete</button>' : ''}
                         </div>
                     `;
                     
@@ -3474,9 +3548,6 @@ window.onload = function() {
             setTimeout(() => {
                 addSongItemEventListeners();
             }, 100);
-            
-            // Hiển thị thống kê storage
-            displayStorageStats();
             
             console.log("[updateSongList] Cập nhật danh sách bài hát hoàn tất");
         } catch (error) {
@@ -3646,8 +3717,37 @@ window.onload = function() {
     
     // Create grid lines in the note grid
     function createGridLines() {
-        // Clear any existing grid
-        noteGrid.innerHTML = '';
+        // Store existing notes before clearing
+        const existingNotes = Array.from(noteGrid.querySelectorAll('.grid-note')).map(note => {
+            return {
+                element: note.cloneNode(true),
+                note: note.getAttribute('data-note'),
+                position: parseFloat(note.getAttribute('data-position')),
+                duration: parseFloat(note.getAttribute('data-duration'))
+            };
+        });
+        
+        // Clear only grid lines and rows, not notes
+        const gridLines = noteGrid.querySelectorAll('.grid-row, div[style*="position: absolute"][style*="width: 1px"]');
+        gridLines.forEach(line => line.remove());
+        
+        // Also clear any remaining background elements that aren't notes
+        const allChildren = Array.from(noteGrid.children);
+        allChildren.forEach(child => {
+            if (!child.classList.contains('grid-note') && child.id !== 'playhead') {
+                child.remove();
+            }
+        });
+        
+        // Calculate grid width based on piano roll length (bars * 4 beats per bar * 4 sixteenth-notes per beat)
+        const unitWidth = 20;
+        const beatsPerBar = 4;
+        const sixteenthNotesPerBeat = 4; // Each beat has 4 sixteenth notes
+        const totalGridUnits = pianoRollLength * beatsPerBar * sixteenthNotesPerBeat;
+        const calculatedGridWidth = totalGridUnits * (unitWidth / 4); // Each sixteenth note is 1/4 of unitWidth
+        
+        // Set the note grid width to the calculated width
+        noteGrid.style.width = `${calculatedGridWidth}px`;
         
         // Create horizontal lines for each note
         const keyHeight = 20; // Height of each note row
@@ -3659,7 +3759,7 @@ window.onload = function() {
             rowElement.style.position = 'absolute';
             rowElement.style.left = '0';
             rowElement.style.top = `${index * keyHeight}px`;
-            rowElement.style.width = '100%';
+            rowElement.style.width = `${calculatedGridWidth}px`; // Use calculated width instead of 100%
             rowElement.style.height = `${keyHeight}px`;
             rowElement.style.borderBottom = '1px solid rgba(255, 255, 255, 0.05)';
             rowElement.setAttribute('data-note', note);
@@ -3668,9 +3768,7 @@ window.onload = function() {
         });
         
         // Thêm các đường kẻ dọc cho các đơn vị 1/8
-        const gridWidth = noteGrid.clientWidth;
-        const unitWidth = 20;
-        const numVerticalLines = Math.floor(gridWidth / (unitWidth / 2));
+        const numVerticalLines = totalGridUnits;
         
         for (let i = 0; i <= numVerticalLines; i++) {
             const lineElement = document.createElement('div');
@@ -3681,14 +3779,23 @@ window.onload = function() {
             lineElement.style.height = '100%';
             
             // Màu đậm cho đường bắt đầu mỗi phách
-            if (i % 4 === 0) {
-                lineElement.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+            if (i % 8 === 0) {
+                lineElement.style.backgroundColor = 'rgba(255, 255, 255, 0.3)'; // Bar lines
+            } else if (i % 4 === 0) {
+                lineElement.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'; // Beat lines
             } else {
-                lineElement.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                lineElement.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'; // Subdivision lines
             }
             
             noteGrid.appendChild(lineElement);
         }
+        
+        // Restore existing notes with updated event listeners
+        existingNotes.forEach(noteData => {
+            // Remove the cloned element since we'll create a proper one
+            const { note, position, duration } = noteData;
+            addNoteToGrid({ note, position, duration });
+        });
     }
     
     // Setup Song Manager Event Listeners
@@ -3776,47 +3883,44 @@ window.onload = function() {
             });
         });
         
-        // Note grid click handler - FIX: Improve note creation click handling
-        noteGrid.addEventListener('click', function(e) {
-            console.log("Grid click detected, clickProcessedOnNote =", clickProcessedOnNote);
-            
-            // Nếu click đã được xử lý trên note hoặc handle, không tạo note mới
-            if (clickProcessedOnNote) {
-                console.log("Click already handled by a note or handle, not creating new note");
-                // Đặt lại biến để sẵn sàng cho lần click tiếp theo
-                setTimeout(() => {
-                    clickProcessedOnNote = false;
-                }, 50);
-                return;
-            }
-            
-            // Kiểm tra xem đang click vào note hay handle hay không
-            const target = e.target;
-            const isNoteClick = target.classList.contains('grid-note') || 
-                               target.classList.contains('resize-handle') ||
-                               (target.parentElement && target.parentElement.classList.contains('grid-note'));
-            
-            // Nếu đang click trực tiếp vào note hoặc handle, không tạo note mới
-            if (isNoteClick) {
-                console.log("Click detected on existing note or handle - not creating new note");
-                return;
-            }
-            
-            // Kiểm tra xem có đang kéo thả hay không
-            if (!isDragging && !isResizing) {
-                console.log("Creating new note at position");
+        // Simple note grid click handler
+        if (noteGrid) {
+            console.log("Setting up note grid click handler on element:", noteGrid);
+            noteGrid.addEventListener('click', function(e) {
+                console.log("Grid click detected! Event:", e);
+                console.log("Target:", e.target);
+                console.log("Target class:", e.target.className);
+                
+                // Very simple logic - just create note unless clicking on existing note
+                if (e.target.classList.contains('grid-note') || e.target.classList.contains('resize-handle')) {
+                    console.log("Clicked on existing note/handle - skipping");
+                    return;
+                }
+                
+                console.log("Attempting to create note...");
                 addNoteAtPosition(e);
-            }
-            
-            // Đặt lại biến để sẵn sàng cho lần click tiếp theo
-            setTimeout(() => {
-                clickProcessedOnNote = false;
-            }, 50);
-        });
+            });
+        } else {
+            console.error("noteGrid element not found!");
+        }
         
         // Thêm sự kiện mousemove và mouseup để xử lý kéo thả
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', handleMouseUp);
+        
+        // Add mouseleave event to reset dragging state
+        noteGrid.addEventListener('mouseleave', function(e) {
+            if (isDragging || isResizing) {
+                console.log("Mouse left note grid while dragging/resizing, ending interaction");
+                isDragging = false;
+                isResizing = false;
+                if (currentDraggedNote) {
+                    currentDraggedNote.classList.remove('dragging');
+                    currentDraggedNote.style.zIndex = '';
+                    currentDraggedNote = null;
+                }
+            }
+        });
         
         // Thêm phím tắt Delete để xóa note đã chọn
         document.addEventListener('keydown', function(e) {
@@ -3959,12 +4063,12 @@ window.onload = function() {
             // Tính toán vị trí mới dựa trên vị trí con trỏ chuột và offset
             const noteGridRect = noteGrid.getBoundingClientRect();
             
-            // Tính toán vị trí chuột tương đối so với lưới
-            const mouseX = e.clientX - noteGridRect.left - dragOffsetX;
-            const mouseY = e.clientY - noteGridRect.top;
+            // Tính toán vị trí chuột tương đối so với lưới, accounting for scroll
+            const mouseX = e.clientX - noteGridRect.left - dragOffsetX + noteGrid.scrollLeft;
+            const mouseY = e.clientY - noteGridRect.top + noteGrid.scrollTop;
             
             // Tính toán vị trí mới theo grid (làm tròn đến 0.5 đơn vị)
-            const newPosition = Math.max(0, Math.floor((mouseX / unitWidth) * 2) / 2);
+            const newPosition = Math.max(0, Math.floor((mouseX / (unitWidth / 4)) * 4) / 4);
             
             // Tính toán hàng mới
             const newRowIndex = Math.floor(mouseY / keyHeight);
@@ -3978,8 +4082,8 @@ window.onload = function() {
                 currentDraggedNote.style.top = `${newRowIndex * keyHeight}px`;
                 currentDraggedNote.setAttribute('data-note', newNote);
                 
-                // Cập nhật vị trí ngang (thời gian)
-                currentDraggedNote.style.left = `${newPosition * unitWidth}px`;
+                // Cập nhật vị trí ngang (thời gian) - 16th note units
+                currentDraggedNote.style.left = `${newPosition * (unitWidth / 4)}px`;
                 currentDraggedNote.setAttribute('data-position', newPosition);
                 
                 // Phát âm thanh khi di chuyển đến một note mới
@@ -3997,25 +4101,34 @@ window.onload = function() {
             const deltaX = e.clientX - dragStartX;
             const newWidth = Math.max(10, originalNoteWidth + deltaX); // Tối thiểu 10px
             
-            // Tính toán độ dài mới theo grid (làm tròn đến 0.5 đơn vị)
-            const newDuration = Math.max(0.5, Math.floor((newWidth / unitWidth) * 2) / 2);
+            // Tính toán độ dài mới theo grid (làm tròn đến 0.25 đơn vị - 16th note precision)
+            const newDuration = Math.max(0.25, Math.floor((newWidth / (unitWidth / 4)) * 4) / 4);
             
             // Cập nhật chiều rộng và thuộc tính độ dài
-            currentDraggedNote.style.width = `${newDuration * unitWidth}px`;
+            currentDraggedNote.style.width = `${newDuration * (unitWidth / 4)}px`;
             currentDraggedNote.setAttribute('data-duration', newDuration);
         }
     }
     
     // Xử lý sự kiện mouseup để kết thúc kéo thả
     function handleMouseUp(e) {
+        console.log("HandleMouseUp called - isDragging:", isDragging, "isResizing:", isResizing);
+        
         // Cập nhật thời gian tương tác cuối cùng
         lastInteractionTime = Date.now();
         
+        // Flag to prevent note creation after drag
+        let wasDraggingOrResizing = isDragging || isResizing;
+        
         // Nếu đang kéo thả hoặc thay đổi kích thước, đánh dấu là đã xử lý sự kiện
-        if (isDragging || isResizing) {
+        if (wasDraggingOrResizing) {
+            console.log("Was dragging/resizing - preventing note creation");
             // Đánh dấu rằng chúng ta đã xử lý sự kiện này, để tránh tạo note mới
             e.stopPropagation();
             e.preventDefault();
+            
+            // Set flag to prevent click event from creating note
+            clickProcessedOnNote = true;
             
             if (currentDraggedNote) {
                 // Xóa class khi kết thúc kéo
@@ -4039,10 +4152,12 @@ window.onload = function() {
         const noteToReset = currentDraggedNote;
         currentDraggedNote = null;
         
-        // Đặt lại biến theo dõi click trên note sau một thời gian ngắn
+        // Đặt lại biến theo dõi click trên note sau một thời gian dài hơn nếu vừa drag
+        const resetDelay = wasDraggingOrResizing ? 300 : 100;
         setTimeout(() => {
             clickProcessedOnNote = false;
-        }, 100);
+            console.log("Reset clickProcessedOnNote flag after", resetDelay, "ms");
+        }, resetDelay);
         
         // Đặt lại vị trí chính xác và z-index cho note sau khi kéo
         if (noteToReset) {
@@ -4157,8 +4272,9 @@ window.onload = function() {
         playEditorBtn.disabled = true;
         stopEditorBtn.disabled = false;
         
-        // Calculate time per grid unit based on BPM
-        const gridUnitTimeMs = (60000 / currentSong.bpm) / 2; // 16th note duration
+        // Calculate time per grid unit based on BPM - synchronized with game
+        const timePerBeat = 60000 / currentSong.bpm; // ms per quarter note
+        const gridUnitTimeMs = timePerBeat / 4; // 16th note duration (same as game)
         
         // Create a visual indicator
         const playhead = document.createElement('div');
@@ -4257,34 +4373,76 @@ window.onload = function() {
         // Sử dụng setTimeout để cho phép UI cập nhật trước khi xử lý
         setTimeout(() => {
             try {
-                // Convert to game format
-                const gameFormatSong = song.notes.map(note => [note.note, note.duration]);
+                // Check if song has valid notes
+                if (!song.notes || !Array.isArray(song.notes) || song.notes.length === 0) {
+                    throw new Error(`Song "${song.name}" has no notes or invalid notes data`);
+                }
                 
-                // Replace the happy birthday song
-                happyBirthdaySong.length = 0;
-                happyBirthdaySong.push(...gameFormatSong);
+                // Convert to game format - IMPORTANT: Sort by position first!
+                const sortedNotes = [...song.notes].sort((a, b) => a.position - b.position);
+                
+                // Keep absolute timing with position
+                const gameFormatSong = sortedNotes.map(note => ({
+                    note: note.note,
+                    duration: note.duration,
+                    position: note.position,
+                    spawned: false
+                }));
+                
+                // Set as current game song
+                currentGameSong.length = 0;
+                currentGameSong.push(...gameFormatSong);
+                selectedSongForGame = song;
+                
+                // Adjust timing based on song BPM - Synchronized with editor
+                const songBPM = song.bpm || 120; // Default to 120 BPM if not specified
+                // Calculate time per 16th note to match piano roll grid units
+                // Each grid unit in piano roll represents a 16th note (quarter note / 4)
+                const timePerBeat = 60000 / songBPM; // ms per quarter note
+                timePerUnit = timePerBeat / 4; // ms per 16th note (grid unit)
                 
                 // Thông báo đã sẵn sàng
                 loadingMessage.textContent = 'Bắt đầu chơi!';
                 
+                // Debug information
+                console.log(`=== SONG LOADED FOR GAME ===`);
+                console.log(`Song: ${song.name}`);
+                console.log(`BPM: ${songBPM}`);
+                console.log(`Time per beat: ${timePerBeat}ms`);
+                console.log(`Time per unit (16th note): ${timePerUnit}ms`);
+                console.log(`Total notes: ${currentGameSong.length}`);
+                console.log(`First few notes:`, currentGameSong.slice(0, 3));
+                
                 // Switch to game mode sau một chút delay để người dùng thấy thông báo
                 setTimeout(() => {
                     document.body.removeChild(loadingMessage);
+                    
+                    // Double check that song is loaded before proceeding
+                    if (currentGameSong.length === 0) {
+                        console.error("Song failed to load properly!");
+                        showNotification('Lỗi khi tải bài hát!', 'error');
+                        return;
+                    }
+                    
+                    // Switch to game mode first
                     switchMode('game');
                     
-                    // Thêm tên bài hát vào màn hình bắt đầu
-                    const startScreenTitle = document.querySelector('#start-screen h1');
-                    if (startScreenTitle) {
-                        startScreenTitle.textContent = song.name;
-                    }
-                    
-                    const startScreenDesc = document.querySelector('#start-screen p');
-                    if (startScreenDesc) {
-                        startScreenDesc.textContent = 'Nhấn vào các ô đen khi chúng xuất hiện.';
-                    }
-                    
-                    // Start the game
-                    startGame();
+                    // Wait a bit for mode switch, then update UI and start
+                    setTimeout(() => {
+                        // Thêm tên bài hát vào màn hình bắt đầu
+                        const startScreenTitle = document.querySelector('#start-screen h1');
+                        if (startScreenTitle) {
+                            startScreenTitle.textContent = song.name;
+                        }
+                        
+                        const startScreenDesc = document.querySelector('#start-screen p');
+                        if (startScreenDesc) {
+                            startScreenDesc.textContent = 'Nhấn vào các ô đen khi chúng xuất hiện.';
+                        }
+                        
+                        // Start the game
+                        startGame();
+                    }, 100);
                 }, 500);
             } catch (error) {
                 console.error('Error loading song for gameplay:', error);
@@ -4965,9 +5123,10 @@ window.onload = function() {
         // Convert to game format and play
         const gameFormatSong = song.notes.map(note => [note.note, note.duration]);
         
-        // Replace the happy birthday song
-        happyBirthdaySong.length = 0;
-        happyBirthdaySong.push(...gameFormatSong);
+        // Set as current game song
+        currentGameSong.length = 0;
+        currentGameSong.push(...gameFormatSong);
+        selectedSongForGame = song;
         
         // Switch to game mode
         switchMode('game');
@@ -5224,6 +5383,64 @@ window.onload = function() {
         console.log("songBpmInput:", songBpmInput);
         console.log("saveSongBtn:", saveSongBtn);
         console.log("saveModeRadios:", saveModeRadios);
+        console.log("rollLengthInput:", rollLengthInput);
+        console.log("noteGrid:", noteGrid);
+        
+        // Initialize roll length input
+        if (rollLengthInput) {
+            rollLengthInput.value = pianoRollLength;
+            rollLengthInput.addEventListener('change', function() {
+                const newLength = parseInt(this.value);
+                if (newLength >= 16 && newLength <= 128) {
+                    pianoRollLength = newLength;
+                    createGridLines(); // Recreate grid with new length
+                }
+            });
+        }
+        
+        // Initialize collapsible song list for mobile
+        const songListToggle = document.getElementById('song-list-toggle');
+        const songListContainer = document.querySelector('.song-list-container');
+        
+        if (songListToggle && songListContainer) {
+            songListToggle.addEventListener('click', function() {
+                const isCollapsed = songListContainer.classList.contains('collapsed');
+                
+                if (isCollapsed) {
+                    // Expand
+                    songListContainer.classList.remove('collapsed');
+                    songListToggle.textContent = '◀';
+                    songListToggle.title = 'Collapse song list';
+                } else {
+                    // Collapse
+                    songListContainer.classList.add('collapsed');
+                    songListToggle.textContent = '▶';
+                    songListToggle.title = 'Expand song list';
+                }
+            });
+            
+            // Set initial state for mobile landscape
+            const isMobileLandscape = window.innerWidth <= 1024 && window.innerHeight < window.innerWidth;
+            if (isMobileLandscape) {
+                songListToggle.style.display = 'flex';
+                songListToggle.title = 'Collapse song list';
+            } else {
+                songListToggle.style.display = 'none';
+            }
+            
+            // Listen for orientation/resize changes
+            window.addEventListener('resize', function() {
+                const isMobileLandscape = window.innerWidth <= 1024 && window.innerHeight < window.innerWidth;
+                if (isMobileLandscape) {
+                    songListToggle.style.display = 'flex';
+                } else {
+                    songListToggle.style.display = 'none';
+                    // Auto-expand when not mobile landscape
+                    songListContainer.classList.remove('collapsed');
+                    songListToggle.textContent = '◀';
+                }
+            });
+        }
         
         // Create piano keys in the editor
         createEditorPianoKeys();
