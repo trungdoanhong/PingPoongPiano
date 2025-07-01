@@ -23,28 +23,48 @@ export function getCurrentSong() { return currentGameSong; }
 export function setCurrentSong(song) {
     selectedSongForGame = song;
     if (song && song.notes) {
-        currentGameSong = [...song.notes].sort((a, b) => a.time - b.time);
+        // Convert notes to game format
+        currentGameSong = song.notes.map(note => ({
+            key: note.note || note.key,
+            time: note.position || note.time || 0,
+            duration: note.duration || 1
+        })).sort((a, b) => a.time - b.time);
+        
         console.log("Game song set:", song.name, "Notes:", currentGameSong.length);
+        showNotification(`Song loaded: ${song.name}`, 'info');
+    } else {
+        currentGameSong = [];
+        console.log("No valid song data provided");
     }
 }
 
 // Start the game
 export function startGame(songData) {
-    if (!songData || !songData.notes || songData.notes.length === 0) {
-        showNotification('No song data available. Please select a song from Song Manager.', 'error');
+    // If songData is provided, use it. Otherwise use selectedSongForGame
+    const gameData = songData || selectedSongForGame;
+    
+    if (!gameData || !gameData.notes || gameData.notes.length === 0) {
+        showNotification('Không có bài hát để chơi. Vui lòng chọn bài từ Song Manager.', 'error');
         return;
     }
     
-    console.log("Starting game with song:", songData.name);
+    console.log("Starting game with song:", gameData.name);
     
-    currentGameSong = songData.notes.sort((a, b) => a.time - b.time);
+    // Reset game state
+    score = 0;
     songPosition = 0;
     particles = [];
     gameStartTime = performance.now();
     lastSpawnTime = 0;
     
+    // Set current song
+    setCurrentSong(gameData);
+    selectedSongForGame = gameData;
+    
+    // Clear existing tiles
     document.querySelectorAll('.tile').forEach(tile => tile.remove());
     
+    // Update UI
     updateScore();
     hideStartScreen();
     hideGameOver();
@@ -55,10 +75,11 @@ export function startGame(songData) {
     // Show mobile game controls
     showGameControls();
     
+    // Start game loop
     isGameRunning = true;
     gameLoop = requestAnimationFrame(update);
     
-    showNotification(`Game started: ${songData.name}`, 'success');
+    showNotification(`Bắt đầu chơi: ${gameData.name}`, 'success');
 }
 
 // End the game
@@ -79,6 +100,9 @@ export function endGame() {
     
     // Remove playing class to hide secondary controls
     document.body.classList.remove('playing');
+    
+    // Hide mobile game controls
+    hideGameControls();
     
     showGameOver();
     
@@ -124,13 +148,13 @@ function update(timestamp) {
 function checkAndSpawnNotes(deltaTime) {
     if (!currentGameSong || currentGameSong.length === 0) return;
     
-    const bpm = selectedSongForGame.bpm || 120;
-    const beatInterval = 60000 / bpm;
-    const noteThreshold = beatInterval * 4;
+    const bpm = selectedSongForGame?.bpm || 120;
+    const beatInterval = 60000 / bpm; // milliseconds per beat
+    const noteThreshold = beatInterval * 2; // spawn notes 2 beats ahead
     
     while (songPosition < currentGameSong.length) {
         const note = currentGameSong[songPosition];
-        const noteTime = note.time * (beatInterval / 4);
+        const noteTime = note.time * (beatInterval / 4); // convert position to milliseconds
         
         if (deltaTime + noteThreshold >= noteTime) {
             spawnNote(note);
@@ -140,6 +164,7 @@ function checkAndSpawnNotes(deltaTime) {
         }
     }
     
+    // Check if game should end
     if (songPosition >= currentGameSong.length) {
         const remainingTiles = document.querySelectorAll('.tile:not(.tile-hit):not(.tile-missed)');
         if (remainingTiles.length === 0) {
@@ -172,41 +197,59 @@ function spawnNote(noteData) {
     tile.dataset.key = noteData.key;
     tile.dataset.time = noteData.time;
     
+    // Calculate tile height based on note duration
     const duration = noteData.duration || 1;
-    const heightPercent = Math.min(duration * 10, 50);
+    const heightPercent = Math.min(Math.max(duration * 15, 10), 50); // between 10% and 50%
     tile.style.height = heightPercent + '%';
     
     column.appendChild(tile);
     
-    console.log("Spawned note:", noteData.key, "at time:", noteData.time);
+    console.log("Spawned note:", noteData.key, "at time:", noteData.time, "duration:", duration);
 }
 
-// Handle column click/tap
+// Handle column click/tap - ENHANCED FOR MOBILE
 export function handleColumnClick(columnElement, event) {
     if (!isGameRunning) return;
     
     const key = columnElement.dataset.key;
     if (!key) return;
     
+    // Get all tiles in this column that aren't already hit or missed
     const tiles = columnElement.querySelectorAll('.tile:not(.tile-hit):not(.tile-missed)');
     let hitTile = null;
+    let bestDistance = Infinity;
     
+    // Find the tile closest to the hit zone (bottom of screen)
     tiles.forEach(tile => {
         const tileTop = parseFloat(tile.style.top);
-        if (tileTop >= 70 && tileTop <= 100) {
-            hitTile = tile;
+        const tileHeight = parseFloat(tile.style.height) || 25;
+        const tileBottom = tileTop + tileHeight;
+        
+        // Hit zone is bottom 30% of screen
+        if (tileBottom >= 70 && tileTop <= 100) {
+            const distance = Math.abs(90 - tileBottom); // Distance from ideal hit point
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                hitTile = tile;
+            }
         }
     });
     
     if (hitTile) {
+        // Calculate score based on accuracy
+        let points = 10;
+        if (bestDistance < 5) points = 15; // Perfect hit
+        else if (bestDistance < 10) points = 12; // Good hit
+        
         hitTile.classList.add('tile-hit');
         hitTile.dataset.hit = 'true';
-        score += 10;
+        score += points;
         updateScore();
         
         playNote(key);
         createRipple(event, columnElement);
-        createParticles(event.clientX, event.clientY, '#0abde3');
+        createParticles(event.clientX || event.touches?.[0]?.clientX || 0, 
+                       event.clientY || event.touches?.[0]?.clientY || 0, '#0abde3');
         createBottomFlash();
         
         setTimeout(() => {
@@ -215,20 +258,34 @@ export function handleColumnClick(columnElement, event) {
             }
         }, 300);
         
-        console.log("Hit! Score:", score);
+        console.log("Hit! Score:", score, "Points:", points);
     } else {
+        // Miss - still show visual feedback but no points
         createRipple(event, columnElement);
+        playNote(key); // Still play the note for feedback
         console.log("Miss - no tile in hit zone");
     }
 }
 
-// Play note sound
+// Play note sound - ENHANCED
 function playNote(noteKey) {
     try {
         const frequency = GAME_CONFIG.noteFrequencies[noteKey];
         if (!frequency) return;
         
+        // Check if AudioContext is supported
+        if (!window.AudioContext && !window.webkitAudioContext) {
+            console.log("AudioContext not supported");
+            return;
+        }
+        
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Resume AudioContext if suspended (required by some browsers)
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+        
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
         
@@ -256,8 +313,8 @@ function createRipple(event, element) {
     ripple.className = 'ripple';
     
     const rect = element.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    const x = (event.clientX || event.touches?.[0]?.clientX || 0) - rect.left;
+    const y = (event.clientY || event.touches?.[0]?.clientY || 0) - rect.top;
     
     ripple.style.left = x + 'px';
     ripple.style.top = y + 'px';
@@ -309,7 +366,7 @@ function updateParticles() {
     particles.forEach((particle, index) => {
         particle.x += particle.vx;
         particle.y += particle.vy;
-        particle.vy += 0.1;
+        particle.vy += 0.1; // gravity
         particle.life -= particle.decay;
         
         if (particle.element) {
@@ -407,8 +464,8 @@ export function initGameControls() {
     
     if (restartButton) {
         restartButton.addEventListener('click', () => {
-            if (currentGameSong) {
-                startGame();
+            if (selectedSongForGame) {
+                startGame(selectedSongForGame);
             } else {
                 showNotification('Vui lòng chọn bài hát từ Song Manager', 'info');
                 if (window.switchMode) {
@@ -420,8 +477,8 @@ export function initGameControls() {
     
     if (restartGameBtn) {
         restartGameBtn.addEventListener('click', () => {
-            if (currentGameSong) {
-                startGame();
+            if (selectedSongForGame) {
+                startGame(selectedSongForGame);
             } else {
                 showNotification('Vui lòng chọn bài hát từ Song Manager', 'info');
                 if (window.switchMode) {
@@ -444,8 +501,10 @@ export function resetGame() {
     score = 0;
     songPosition = 0;
     particles = [];
-    currentGameSong = [];
-    selectedSongForGame = null;
+    
+    // Don't clear song data - keep it for restart
+    // currentGameSong = [];
+    // selectedSongForGame = null;
     
     // Hide mobile game controls
     hideGameControls();
@@ -459,9 +518,6 @@ export function resetGame() {
     
     // Hide game over screen
     hideGameOver();
-    
-    // Show start screen
-    hideStartScreen();
     
     // Update UI
     updateScore();

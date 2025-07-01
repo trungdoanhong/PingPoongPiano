@@ -205,16 +205,62 @@
                         <div class="editor-actions">
                             <button id="save-song-btn">Save</button>
                             <button id="export-song-btn">Export</button>
-                            <div class="save-status" id="save-status">Local Storage</div>
+                            <div class="save-status-indicator" id="save-status-indicator">
+                                <div class="status-dot"></div>
+                                <span>Saved</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Performance Stats -->
+                    <div class="performance-stats" id="performance-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">Notes</div>
+                            <div class="stat-value" id="note-count">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Length</div>
+                            <div class="stat-value" id="song-length">0:00</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">BPM</div>
+                            <div class="stat-value" id="current-bpm">120</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Key</div>
+                            <div class="stat-value" id="song-key">C</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Mini Toolbar -->
+                    <div class="mini-toolbar">
+                        <div class="mini-btn" id="select-tool" title="Select notes">
+                            ✋ Select
+                        </div>
+                        <div class="mini-btn active" id="pencil-tool" title="Add notes">
+                            ✏️ Draw
+                        </div>
+                        <div class="mini-btn" id="eraser-tool" title="Delete notes">
+                            🗑️ Erase
+                        </div>
+                        <div class="mini-btn" id="zoom-in" title="Zoom in">
+                            🔍+
+                        </div>
+                        <div class="mini-btn" id="zoom-out" title="Zoom out">
+                            🔍-
                         </div>
                     </div>
                     
                     <div class="piano-roll-container">
+                        <div class="timeline-ruler">
+                            <!-- Beat markers will be created here -->
+                        </div>
                         <div class="piano-keys">
                             <!-- Piano keys for reference will be created here -->
                         </div>
                         <div class="note-grid">
                             <!-- Note grid will be created here -->
+                            <div class="playback-line" id="playback-line"></div>
                         </div>
                     </div>
                     

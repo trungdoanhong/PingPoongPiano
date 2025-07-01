@@ -1,163 +1,188 @@
-# 🎹 Pink Poong Piano
+# �� Pink Poong Piano
 
-A modern Piano Tiles game with Firebase integration, featuring real-time music creation, user authentication, and cloud storage.
+Một ứng dụng piano game web tương tác với chế độ chơi theo bài hát và song editor, được tối ưu hoá cho điện thoại di động.
 
-## ✨ Features
+## ✨ Tính năng
 
-### 🎮 Game Features
-- **Piano Tiles Gameplay**: Classic falling tiles rhythm game
-- **Real-time Audio**: Microphone input for pitch detection
-- **Visual Effects**: Particles, ripples, and smooth animations
-- **Responsive Design**: Works on desktop and mobile devices
+### 🎮 Piano Game
+- Chơi piano tiles theo bài hát
+- Hỗ trợ đầy đủ touch events cho mobile
+- Hiệu ứng visual và âm thanh tuyệt đẹp
+- Điểm số và độ chính xác
+- Tối ưu hoá cho màn hình nằm ngang
 
-### 🎵 Music Creation
-- **Song Editor**: Create custom songs with visual note grid
-- **Real-time Preview**: Test songs while editing
-- **Import/Export**: Share songs as JSON files
-- **Multiple Note Durations**: Support for various note lengths
+### 🎵 Song Manager
+- Tạo và chỉnh sửa bài hát với piano roll editor
+- Import/Export bài hát định dạng JSON
+- 3 bài demo có sẵn: Twinkle Twinkle Little Star, Happy Birthday, Scale Practice
+- Responsive design cho mobile
+- Auto-save và manual save
 
-### ☁️ Firebase Integration
-- **Google Authentication**: Secure user login
-- **Cloud Storage**: Save songs to Firebase Firestore
-- **Role-based Permissions**: Admin, Moderator, and User roles
-- **Real-time Sync**: Automatic data synchronization
+### 🎚️ Audio Analyzer
+- Phân tích và hiển thị tần số âm thanh
+- Ghi âm và phát hiện note
+- Visualizer real-time
 
-### 👥 User Management
-- **Admin Panel**: Manage users and songs (admin only)
-- **Storage Indicators**: Visual indicators for local vs cloud songs
-- **Filter System**: Filter songs by storage type
-- **Statistics**: View storage usage statistics
+### 👑 Admin Panel
+- Quản lý user và bài hát
+- Thống kê hệ thống
+- Chỉ dành cho admin
 
-## 🚀 Quick Start
+## 📱 Hướng dẫn sử dụng trên Mobile
+
+### Khởi động
+1. Mở ứng dụng trong trình duyệt
+2. **Xoay điện thoại sang chế độ nằm ngang** để có trải nghiệm tốt nhất
+3. Ứng dụng sẽ tự động tối ưu cho mobile
+
+### Chơi Game
+1. Từ màn hình chính, nhấn **"Song Manager"**
+2. Chọn một trong 3 bài demo có sẵn
+3. Nhấn nút **"Play"** bên cạnh tên bài hát
+4. Game sẽ tự động chuyển sang chế độ chơi
+5. **Chạm vào các cột piano** khi có tile rơi xuống
+6. Cố gắng chạm đúng thời điểm để đạt điểm cao
+
+### Tạo bài hát mới
+1. Vào **Song Manager**
+2. Nhấn **"New Song"**
+3. Đặt tên bài hát và BPM
+4. **Chạm vào note grid** để thêm note
+5. Sử dụng toolbar để chọn tool:
+   - ✏️ **Draw**: Thêm note
+   - ✋ **Select**: Chọn note
+   - 🗑️ **Erase**: Xóa note
+6. Nhấn **▶️ Play** để nghe thử
+7. Nhấn **Save** để lưu
+
+### Controls trên Mobile
+- **Menu**: Chuyển đổi giữa các chế độ
+- **Speed +/-**: Điều chỉnh tốc độ game
+- **Margin +/-**: Điều chỉnh lề màn hình
+- **Fullscreen**: Chế độ toàn màn hình
+- **Login**: Đăng nhập Google
+
+## 🛠️ Cài đặt cho Development
 
 ### Prerequisites
-- Node.js (v14 or higher)
-- Firebase project with Firestore enabled
+- Node.js (v14 hoặc cao hơn)
+- Trình duyệt web hiện đại
+- Firebase project (tùy chọn)
 
-### Installation
+### Chạy local
+```bash
+# Clone repository
+git clone https://github.com/your-username/pink-poong-piano.git
+cd pink-poong-piano
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd PingPongPiano
-   ```
+# Cài đặt dependencies (nếu có)
+npm install
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+# Chạy server đơn giản
+python -m http.server 8080
+# hoặc
+npx http-server
 
-3. **Configure Firebase**
-   - Update `firebase-config.js` with your Firebase project credentials
-   - Set up Firestore security rules (see below)
-
-4. **Start the server**
-   ```bash
-   npm start
-   ```
-
-5. **Open in browser**
-   ```
-   http://localhost:3000
-   ```
-
-## 🔧 Firebase Setup
-
-### Firestore Security Rules
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Users collection
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      allow read: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'moderator'];
-    }
-    
-    // Songs collection
-    match /songs/{songId} {
-      allow read: if request.auth != null;
-      allow create, update: if request.auth != null && 
-        (request.auth.uid == resource.data.userId || 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'moderator']);
-      allow delete: if request.auth != null && 
-        (request.auth.uid == resource.data.userId || 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-    }
-  }
-}
+# Mở trình duyệt tại http://localhost:8080
 ```
 
-### Admin Setup
-1. Sign in with your Google account
-2. Manually set your role to 'admin' in Firestore users collection
-3. Or use the "Force Admin" button for testing
+### Firebase Setup (Tùy chọn)
+1. Tạo Firebase project tại https://console.firebase.google.com
+2. Enable Authentication và Firestore
+3. Cập nhật `firebase-config.js` với config của bạn
 
-## 🎯 User Roles
+## 📁 Cấu trúc Project
 
-- **👑 Admin**: Full access to all features, user management, delete any songs
-- **🛡️ Moderator**: Can save to Firebase, manage own songs
-- **👤 User**: Local storage only, can play all songs
-
-## 📱 Usage
-
-### Playing Songs
-1. Select a song from the list
-2. Click "Play" to start the game
-3. Tap falling tiles in rhythm with the music
-
-### Creating Songs
-1. Click "New Song" in Song Manager
-2. Use the visual editor to place notes
-3. Test with "Play" button
-4. Save locally or to Firebase (with permissions)
-
-### Storage Types
-- **☁️ Firebase**: Songs saved to cloud (admin/moderator)
-- **💾 Local**: Songs saved to browser storage
-- **⚠️ Unsaved**: Temporary songs not yet saved
-
-## 🛠️ Development
-
-### Project Structure
 ```
-├── index.html          # Main game interface
-├── script.js           # Game logic and Firebase integration
-├── styles.css          # Styling and animations
-├── firebase-config.js  # Firebase configuration
-├── server.js           # Static file server
-└── package.json        # Dependencies
+PingPoongPiano/
+├── css/                    # CSS modules
+│   ├── main.css           # CSS chính
+│   ├── mobile.css         # Responsive mobile
+│   ├── game.css           # Game styles
+│   ├── song-manager.css   # Song editor styles
+│   └── ...
+├── js/                    # JavaScript modules
+│   ├── app.js             # Main app
+│   ├── game/              # Game logic
+│   ├── song/              # Song manager
+│   ├── ui/                # UI controls
+│   ├── audio/             # Audio analyzer
+│   └── utils/             # Utilities
+├── index.html             # Main HTML file
+├── firebase-config.js     # Firebase configuration
+└── README.md
 ```
 
-### Key Components
-- **Game Engine**: Piano tiles gameplay logic
-- **Song Manager**: CRUD operations for songs
-- **Firebase Integration**: Authentication and data storage
-- **Audio System**: Microphone input and note detection
-- **Admin Panel**: User and song management
+## 🎯 Key Features cho Mobile
 
-## 🔄 Migration from REST API
+### Touch Optimization
+- **Enhanced touch events**: Hỗ trợ multi-touch và prevent scroll
+- **Visual feedback**: Ripple effects và active states
+- **Responsive layout**: Tự động điều chỉnh cho màn hình nhỏ
+- **Orientation detection**: Thông báo xoay màn hình
 
-This version has been migrated from a REST API backend to Firebase:
-- ✅ Removed local file storage
-- ✅ Implemented Firebase Firestore
-- ✅ Added Google Authentication
-- ✅ Role-based access control
-- ✅ Real-time data synchronization
+### Performance
+- **Efficient rendering**: Optimized game loop và animations
+- **Memory management**: Cleanup particles và effects
+- **Smooth scrolling**: Prevented where necessary
+- **Audio optimization**: Resume AudioContext trên mobile
 
-## 📝 License
+### UI/UX
+- **Compact controls**: Optimized button sizes cho touch
+- **Collapsible panels**: Song list có thể thu gọn
+- **Safe area support**: Hỗ trợ notch devices
+- **Loading states**: Proper feedback cho user
 
-MIT License - feel free to use and modify!
+## 🚀 Deployment
+
+### GitHub Pages
+1. Fork repository này
+2. Enable GitHub Pages trong Settings
+3. Chọn branch `main` như source
+4. Truy cập tại `https://your-username.github.io/pink-poong-piano`
+
+### Netlify/Vercel
+1. Connect GitHub repository
+2. Set build command: `npm run build` (nếu có)
+3. Set publish directory: `/` hoặc `/dist`
+4. Deploy!
+
+## 🐛 Troubleshooting
+
+### Audio không phát
+- Đảm bảo unmute device
+- Chạm vào màn hình trước để enable AudioContext
+- Kiểm tra browser permissions
+
+### Touch không hoạt động
+- Refresh trang
+- Đảm bảo JavaScript enabled
+- Thử trong trình duyệt khác
+
+### Performance issues
+- Close other apps để free RAM
+- Thử lower device settings
+- Refresh page occasionally
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+2. Create feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+## 📜 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Web Audio API documentation
+- Firebase for backend services
+- CSS Grid và Flexbox specifications
+- Touch Events W3C specification
 
 ---
 
-**🎵 Enjoy creating and playing music with Pink Poong Piano! 🎵** 
+**Made with ❤️ for mobile piano gaming experience** 

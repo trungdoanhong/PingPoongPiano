@@ -1,6 +1,6 @@
 // Song Manager Module
 import { generateId, isLocalStorageAvailable } from '../utils/helpers.js';
-import { getSongs, setSongs, saveSongsToLocalStorage, getSongStorageInfo } from '../utils/storage.js';
+import { getSongs, setSongs, saveSongsToLocalStorage, getSongStorageInfo, loadSongsFromLocalStorage } from '../utils/storage.js';
 import { showNotification, showErrorMessage } from '../ui/notifications.js';
 import { getCurrentUser, getCurrentUserRole, canSaveToServer } from '../firebase/auth.js';
 import { GAME_CONFIG } from '../config/constants.js';
@@ -24,10 +24,20 @@ let isPlaying = false;
 let playbackInterval = null;
 let playbackPosition = 0;
 
+// Enhanced features state
+let currentTool = 'pencil'; // pencil, select, eraser
+let selectedNotes = new Set();
+let zoomLevel = 1;
+let autoSaveEnabled = true;
+let lastSaveTime = Date.now();
+
 // DOM element references (cached for performance)
 let saveSongBtn, newSongBtn, importSongBtn, exportSongBtn;
 let playEditorBtn, stopEditorBtn, noteGrid, pianoKeysContainer;
 let durationBtns, saveModeRadios;
+
+// Enhanced UI elements
+let saveStatusIndicator, performanceStats, miniToolbar, timelineRuler, playbackLine;
 
 // Piano key configuration
 const keyOrder = ['c5', 'd5', 'e5', 'f5', 'g5', 'a5', 'b5', 'c6', 'd6', 'e6', 'f6', 'g6', 'a6', 'b6', 'c7'];
@@ -50,59 +60,232 @@ function cacheDOMElements() {
     durationBtns = document.querySelectorAll('.duration-btn');
     saveModeRadios = document.querySelectorAll('input[name="save-mode"]');
     
+    // Enhanced UI elements
+    saveStatusIndicator = document.getElementById('save-status-indicator');
+    performanceStats = document.getElementById('performance-stats');
+    miniToolbar = document.querySelector('.mini-toolbar');
+    timelineRuler = document.querySelector('.timeline-ruler');
+    playbackLine = document.getElementById('playback-line');
+    
     console.log("DOM elements cached:", {
         saveSongBtn, newSongBtn, importSongBtn, exportSongBtn, 
         playEditorBtn, stopEditorBtn, noteGrid, 
         pianoKeysContainer, durationBtns: durationBtns.length,
-        saveModeRadios: saveModeRadios.length
+        saveModeRadios: saveModeRadios.length,
+        saveStatusIndicator, performanceStats, miniToolbar
     });
 }
 
-// Get current song
-export function getCurrentSong() {
-    return currentSong;
+// Initialize Song Manager
+async function initSongManager() {
+    console.log("🎹 === INITIALIZING SONG MANAGER ===");
+    
+    cacheDOMElements();
+    
+    if (!validateElements()) {
+        console.error("❌ Required elements not found");
+        return false;
+    }
+    
+    // CRITICAL: Load songs from storage FIRST before setting up UI
+    try {
+        console.log("📚 Loading songs from storage...");
+        const loadedSongs = await loadSongsFromLocalStorage();
+        console.log("✅ Songs loaded:", loadedSongs.length);
+        console.log("✅ Song names:", loadedSongs.map(s => s.name));
+        
+        // Ensure songs are set in storage module
+        setSongs(loadedSongs);
+        console.log("✅ Songs set in storage module");
+        
+        // Verify songs were set
+        const verifyingSongs = getSongs();
+        console.log("🔍 Verifying songs in memory:", verifyingSongs.length);
+        
+    } catch (error) {
+        console.error("❌ Failed to load songs:", error);
+        // Continue with empty songs array
+    }
+    
+    setupEventListeners();
+    setupEnhancedFeatures();
+    initializeUI();
+    
+    console.log("🎵 About to call loadAndDisplaySongs...");
+    // Load and display songs AFTER everything is set up
+    loadAndDisplaySongs();
+    
+    console.log("✅ Song Manager initialized successfully");
+    return true;
 }
 
-// Create new song
-export function createNewSong() {
-    currentSong = {
-        id: 'temp_' + generateId(),
-        name: 'New Song',
-        bpm: 120,
-        notes: [],
-        rollLength: 32,
-        createdAt: new Date().toISOString(),
-        userId: getCurrentUser()?.uid || 'anonymous'
-    };
-    
-    isEditing = true;
-    clearSongInputs();
-    loadSongIntoEditor(currentSong);
-    
-    console.log("Created new song:", currentSong.id);
-    showNotification('Tạo bài hát mới', 'success');
+// Validate required DOM elements
+function validateElements() {
+    const required = { saveSongBtn, newSongBtn, noteGrid, pianoKeysContainer };
+    for (const [name, element] of Object.entries(required)) {
+        if (!element) {
+            console.error(`❌ Required element missing: ${name}`);
+            return false;
+        }
+    }
+    return true;
 }
 
-// Edit existing song
-export function editSong(songId) {
-    const songs = getSongs();
-    const song = songs.find(s => s.id === songId);
-    
-    if (!song) {
-        showErrorMessage('Không tìm thấy bài hát');
+// Load and display songs in the UI
+function loadAndDisplaySongs() {
+    const songList = document.getElementById('song-list');
+    if (!songList) {
+        console.error("Song list element not found");
         return;
     }
     
-    currentSong = { ...song };
-    isEditing = true;
-    loadSongIntoEditor(currentSong);
+    const songs = getSongs();
+    console.log("🎵 loadAndDisplaySongs - Found songs:", songs.length, songs);
     
-    console.log("Editing song:", song.name);
-    showNotification(`Đang chỉnh sửa: ${song.name}`, 'info');
+    songList.innerHTML = '';
+    
+    if (songs.length === 0) {
+        console.warn("🎵 No songs found, showing empty message");
+        songList.innerHTML = `
+            <div style="text-align: center; padding: 20px; opacity: 0.7;">
+                <p>Chưa có bài hát nào</p>
+                <p style="font-size: 12px;">Tạo bài hát mới để bắt đầu</p>
+            </div>
+        `;
+        return;
+    }
+    
+    songs.forEach((song, index) => {
+        console.log(`🎵 Creating song element ${index + 1}:`, song.name);
+        const songElement = createSongElement(song);
+        songList.appendChild(songElement);
+    });
+    
+    console.log(`✅ Loaded ${songs.length} songs into UI`);
+}
+
+// Create song element for the list
+function createSongElement(song) {
+    const songElement = document.createElement('div');
+    songElement.className = 'song-item';
+    songElement.dataset.songId = song.id;
+    
+    const noteCount = song.notes ? song.notes.length : 0;
+    const duration = calculateSongDuration(song);
+    const storageInfo = getSongStorageInfo(song);
+    
+    songElement.innerHTML = `
+        <div class="song-name">${song.name || 'Untitled Song'}</div>
+        <div class="song-meta">
+            <span>BPM: ${song.bpm || 120}</span>
+            <span>Notes: ${noteCount}</span>
+            <span>Duration: ${duration}</span>
+        </div>
+        <div class="song-duration">${storageInfo.description || 'Local'}</div>
+        <div class="song-actions">
+            <button class="edit-btn" data-action="edit">Edit</button>
+            <button class="play-btn" data-action="play">Play</button>
+            <button class="delete-btn" data-action="delete">Delete</button>
+        </div>
+    `;
+    
+    // Add event listeners
+    songElement.addEventListener('click', (e) => {
+        if (!e.target.classList.contains('song-actions') && !e.target.closest('.song-actions')) {
+            loadSongIntoEditor(song);
+        }
+    });
+    
+    songElement.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const action = btn.dataset.action;
+            handleSongAction(action, song);
+        });
+    });
+    
+    return songElement;
+}
+
+// Handle song actions (edit, play, delete)
+function handleSongAction(action, song) {
+    switch (action) {
+        case 'edit':
+            loadSongIntoEditor(song);
+            break;
+        case 'play':
+            playGameWithSong(song);
+            break;
+        case 'delete':
+            deleteSong(song);
+            break;
+    }
+}
+
+// Play game with selected song
+function playGameWithSong(song) {
+    if (!song || !song.notes || song.notes.length === 0) {
+        showNotification('Bài hát không có note để chơi', 'error');
+        return;
+    }
+    
+    // Set current song for game
+    if (window.setCurrentSong) {
+        window.setCurrentSong(song);
+    }
+    
+    // Switch to game mode
+    if (window.switchMode) {
+        window.switchMode('game');
+    }
+    
+    // Start the game
+    setTimeout(() => {
+        if (window.startGame) {
+            window.startGame(song);
+        }
+    }, 500);
+    
+    showNotification(`Bắt đầu chơi: ${song.name}`, 'success');
+}
+
+// Delete song
+function deleteSong(song) {
+    if (confirm(`Bạn có chắc muốn xóa bài hát "${song.name}"?`)) {
+        const songs = getSongs();
+        const updatedSongs = songs.filter(s => s.id !== song.id);
+        setSongs(updatedSongs);
+        saveSongsToLocalStorage();
+        loadAndDisplaySongs();
+        
+        // Clear editor if this song was being edited
+        if (currentSong && currentSong.id === song.id) {
+            createNewSong();
+        }
+        
+        showNotification(`Đã xóa bài hát: ${song.name}`, 'success');
+    }
+}
+
+// Calculate song duration
+function calculateSongDuration(song) {
+    if (!song.notes || song.notes.length === 0) return '0:00';
+    
+    const bpm = song.bpm || 120;
+    const lastNote = Math.max(...song.notes.map(note => note.time || note.position || 0));
+    const durationInSeconds = (lastNote * 60) / (bpm * 4);
+    
+    const minutes = Math.floor(durationInSeconds / 60);
+    const seconds = Math.floor(durationInSeconds % 60);
+    
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 // Load song into editor
 function loadSongIntoEditor(songData) {
+    currentSong = songData;
+    isEditing = true;
+    
     // Update input fields
     const songNameInput = document.getElementById('song-name');
     const songBpmInput = document.getElementById('song-bpm');
@@ -112,9 +295,13 @@ function loadSongIntoEditor(songData) {
     if (songBpmInput) songBpmInput.value = songData.bpm || 120;
     if (rollLengthInput) rollLengthInput.value = songData.rollLength || 32;
     
+    // Update roll length variable
+    pianoRollLength = songData.rollLength || 32;
+    
     // Clear and recreate grid
     clearNoteGrid();
     createGridLines();
+    createTimelineRuler();
     createEditorPianoKeys();
     
     // Add notes to grid
@@ -125,6 +312,9 @@ function loadSongIntoEditor(songData) {
     }
     
     updateSaveButtonState();
+    updatePerformanceStats();
+    
+    showNotification(`Loaded song: ${songData.name}`, 'success');
 }
 
 // Clear note grid
@@ -134,28 +324,158 @@ function clearNoteGrid() {
         const notes = noteGrid.querySelectorAll('.grid-note');
         notes.forEach(note => note.remove());
     }
+    selectedNotes.clear();
+    updatePerformanceStats();
 }
 
-// Create piano keys in the editor
-function createEditorPianoKeys() {
-    if (!pianoKeysContainer) return;
+// Update song list (for external use)
+function updateSongList() {
+    loadAndDisplaySongs();
+    updatePerformanceStats();
+}
+
+// Create new song
+function createNewSong() {
+    currentSong = {
+        id: generateId(),
+        name: '',
+        bpm: 120,
+        notes: [],
+        rollLength: 32,
+        createdAt: new Date().toISOString(),
+        modifiedAt: new Date().toISOString()
+    };
     
-    pianoKeysContainer.innerHTML = '';
+    isEditing = true;
     
-    // Create keys in reverse order (highest note at top)
-    const reversedKeyOrder = [...keyOrder].reverse();
+    // Clear form
+    const songNameInput = document.getElementById('song-name');
+    const songBpmInput = document.getElementById('song-bpm');
+    const rollLengthInput = document.getElementById('roll-length');
     
-    reversedKeyOrder.forEach(note => {
-        const keyElement = document.createElement('div');
-        keyElement.className = `editor-key ${keyColors[note]}`;
-        keyElement.setAttribute('data-note', note);
-        keyElement.textContent = note.toUpperCase();
+    if (songNameInput) songNameInput.value = '';
+    if (songBpmInput) songBpmInput.value = '120';
+    if (rollLengthInput) rollLengthInput.value = '32';
+    
+    pianoRollLength = 32;
+    
+    // Clear and recreate grid
+    clearNoteGrid();
+    createGridLines();
+    createTimelineRuler();
+    createEditorPianoKeys();
+    
+    updateSaveButtonState();
+    updatePerformanceStats();
+    
+    showNotification('Created new song', 'success');
+}
+
+// Save song
+function saveSong(isAutoSave = false) {
+    if (!currentSong) return;
+    
+    // Update song data from form
+    const songNameInput = document.getElementById('song-name');
+    const songBpmInput = document.getElementById('song-bpm');
+    const rollLengthInput = document.getElementById('roll-length');
+    
+    if (songNameInput) currentSong.name = songNameInput.value || 'Untitled Song';
+    if (songBpmInput) currentSong.bpm = parseInt(songBpmInput.value) || 120;
+    if (rollLengthInput) currentSong.rollLength = parseInt(rollLengthInput.value) || 32;
+    
+    // Update timestamp
+    currentSong.modifiedAt = new Date().toISOString();
+    
+    // Get current notes from grid
+    const noteElements = document.querySelectorAll('.grid-note');
+    currentSong.notes = [];
+    
+    noteElements.forEach(noteElement => {
+        const note = noteElement.getAttribute('data-note');
+        const position = parseFloat(noteElement.getAttribute('data-position'));
+        const duration = parseFloat(noteElement.getAttribute('data-duration'));
         
-        pianoKeysContainer.appendChild(keyElement);
+        if (note && !isNaN(position) && !isNaN(duration)) {
+            currentSong.notes.push({
+                note,
+                key: note, // For compatibility
+                time: position,
+                position,
+                duration
+            });
+        }
     });
+    
+    // Save to storage
+    const songs = getSongs();
+    const existingIndex = songs.findIndex(s => s.id === currentSong.id);
+    
+    if (existingIndex >= 0) {
+        songs[existingIndex] = currentSong;
+    } else {
+        songs.push(currentSong);
+    }
+    
+    setSongs(songs);
+    saveSongsToLocalStorage();
+    
+    // Update UI
+    loadAndDisplaySongs();
+    updateSaveButtonState();
+    updateSaveStatusIndicator('saved');
+    
+    if (!isAutoSave) {
+        showNotification(`Saved: ${currentSong.name}`, 'success');
+    }
+    
+    lastSaveTime = Date.now();
 }
 
-// Create grid lines in the note grid (Enhanced version from original)
+// Export functions for external use
+export { 
+    initSongManager,
+    addNoteAtPosition, 
+    handleMouseMove, 
+    handleMouseUp,
+    loadSongIntoEditor,
+    clearNoteGrid,
+    updateSongList,
+    createNewSong,
+    saveSong,
+    playGameWithSong
+};
+
+// Create enhanced timeline ruler with beat markers
+function createTimelineRuler() {
+    if (!timelineRuler) return;
+    
+    // Clear existing markers
+    timelineRuler.innerHTML = '';
+    
+    const unitWidth = 20;
+    const beatsPerBar = 4;
+    const totalBars = pianoRollLength;
+    const totalBeats = totalBars * beatsPerBar;
+    
+    for (let beat = 0; beat <= totalBeats; beat++) {
+        const marker = document.createElement('div');
+        marker.className = 'beat-marker';
+        
+        // Major markers every 4 beats (bar lines)
+        if (beat % beatsPerBar === 0) {
+            marker.classList.add('major');
+            marker.textContent = `${Math.floor(beat / beatsPerBar) + 1}`;
+        } else {
+            marker.textContent = `${(beat % beatsPerBar) + 1}`;
+        }
+        
+        marker.style.left = `${beat * unitWidth * zoomLevel}px`;
+        timelineRuler.appendChild(marker);
+    }
+}
+
+// Create grid lines in the note grid (Enhanced version)
 function createGridLines() {
     if (!noteGrid) return;
     
@@ -176,23 +496,23 @@ function createGridLines() {
     // Also clear any remaining background elements that aren't notes
     const allChildren = Array.from(noteGrid.children);
     allChildren.forEach(child => {
-        if (!child.classList.contains('grid-note') && child.id !== 'playhead') {
+        if (!child.classList.contains('grid-note') && child.id !== 'playback-line') {
             child.remove();
         }
     });
     
-    // Calculate grid width based on piano roll length (bars * 4 beats per bar * 4 sixteenth-notes per beat)
+    // Calculate grid width based on piano roll length
     const unitWidth = 20;
     const beatsPerBar = 4;
-    const sixteenthNotesPerBeat = 4; // Each beat has 4 sixteenth notes
+    const sixteenthNotesPerBeat = 4;
     const totalGridUnits = pianoRollLength * beatsPerBar * sixteenthNotesPerBeat;
-    const calculatedGridWidth = totalGridUnits * (unitWidth / 4); // Each sixteenth note is 1/4 of unitWidth
+    const calculatedGridWidth = totalGridUnits * (unitWidth / 4) * zoomLevel;
     
-    // Set the note grid width to the calculated width
+    // Set the note grid width
     noteGrid.style.width = `${calculatedGridWidth}px`;
     
     // Create horizontal lines for each note
-    const keyHeight = 20; // Height of each note row
+    const keyHeight = 20;
     const reversedKeyOrder = [...keyOrder].reverse();
     
     reversedKeyOrder.forEach((note, index) => {
@@ -201,7 +521,7 @@ function createGridLines() {
         rowElement.style.position = 'absolute';
         rowElement.style.left = '0';
         rowElement.style.top = `${index * keyHeight}px`;
-        rowElement.style.width = `${calculatedGridWidth}px`; // Use calculated width instead of 100%
+        rowElement.style.width = `${calculatedGridWidth}px`;
         rowElement.style.height = `${keyHeight}px`;
         rowElement.style.borderBottom = '1px solid rgba(255, 255, 255, 0.05)';
         rowElement.setAttribute('data-note', note);
@@ -216,19 +536,16 @@ function createGridLines() {
         const lineElement = document.createElement('div');
         lineElement.style.position = 'absolute';
         lineElement.style.top = '0';
-        lineElement.style.left = `${i * (unitWidth / 2)}px`;
+        lineElement.style.left = `${i * (unitWidth / 2) * zoomLevel}px`;
         lineElement.style.width = '1px';
         lineElement.style.height = '100%';
         
         // Different opacity for different types of lines
         if (i % (beatsPerBar * sixteenthNotesPerBeat) === 0) {
-            // Measure line (every 4 beats)
             lineElement.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
         } else if (i % sixteenthNotesPerBeat === 0) {
-            // Beat line (every beat)
             lineElement.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
         } else {
-            // Subdivision line (every sixteenth note)
             lineElement.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
         }
         
@@ -241,13 +558,25 @@ function createGridLines() {
             noteGrid.appendChild(noteData.element);
         }
     });
+    
+    updatePerformanceStats();
 }
 
-// Add note at position (when clicking on grid) - Enhanced version
-export function addNoteAtPosition(e) {
+// Add note at position (Enhanced version)
+function addNoteAtPosition(e) {
     console.log("addNoteAtPosition called with event:", e);
     
-    // Check if we just finished dragging/resizing - if so, don't create note
+    // Only add notes with pencil tool
+    if (currentTool !== 'pencil') {
+        if (currentTool === 'eraser') {
+            handleEraserClick(e);
+        } else if (currentTool === 'select') {
+            handleSelectClick(e);
+        }
+        return;
+    }
+    
+    // Check if we just finished dragging/resizing
     if (clickProcessedOnNote) {
         console.log("Ignoring click - just finished dragging/resizing");
         return;
@@ -260,22 +589,20 @@ export function addNoteAtPosition(e) {
     }
     
     const rect = noteGrid.getBoundingClientRect();
-    // Calculate the mouse position relative to the grid, accounting for scroll
     const x = e.clientX - rect.left + noteGrid.scrollLeft;
     const y = e.clientY - rect.top + noteGrid.scrollTop;
     
     // Calculate grid position
-    const keyHeight = 20; // Height of each note row
-    const unitWidth = 20; // Width of each grid unit
+    const keyHeight = 20;
+    const unitWidth = 20 * zoomLevel;
     
     const noteIndex = Math.floor(y / keyHeight);
-    // Position in 16th note units (0.25 precision for finer control)
     const position = Math.floor(x / (unitWidth / 4)) * 0.25;
     
     // Get the note based on index
     const reversedKeyOrder = [...keyOrder].reverse();
     if (noteIndex >= reversedKeyOrder.length || noteIndex < 0) {
-        console.log("Invalid note index:", noteIndex, "keyOrder length:", reversedKeyOrder.length);
+        console.log("Invalid note index:", noteIndex);
         return;
     }
     
@@ -298,13 +625,48 @@ export function addNoteAtPosition(e) {
         currentSong.notes.push(noteData);
         console.log("Added note to currentSong:", noteData);
         updateSaveButtonState();
+        updatePerformanceStats();
     }
     
     // Play the note sound
     playNoteSound(note);
 }
 
-// Add note to grid (Fixed to match original script.js)
+// Handle eraser tool click
+function handleEraserClick(e) {
+    if (e.target.classList.contains('grid-note')) {
+        deleteNote(e.target);
+    }
+}
+
+// Handle select tool click
+function handleSelectClick(e) {
+    if (e.target.classList.contains('grid-note')) {
+        toggleNoteSelection(e.target);
+    } else {
+        // Clear selection if clicking on empty area
+        clearNoteSelection();
+    }
+}
+
+// Toggle note selection
+function toggleNoteSelection(noteElement) {
+    if (selectedNotes.has(noteElement)) {
+        selectedNotes.delete(noteElement);
+        noteElement.classList.remove('selected');
+    } else {
+        selectedNotes.add(noteElement);
+        noteElement.classList.add('selected');
+    }
+}
+
+// Clear note selection
+function clearNoteSelection() {
+    selectedNotes.forEach(note => note.classList.remove('selected'));
+    selectedNotes.clear();
+}
+
+// Add note to grid (Enhanced version)
 function addNoteToGrid(noteData) {
     const noteGrid = document.querySelector('.note-grid');
     if (!noteGrid) {
@@ -314,7 +676,6 @@ function addNoteToGrid(noteData) {
     
     console.log("🎵 Adding note to grid:", noteData);
     
-    // Check if we have the right data structure
     const note = noteData.note || noteData.key;
     const position = noteData.position || noteData.time || 0;
     const duration = noteData.duration || 2;
@@ -333,10 +694,10 @@ function addNoteToGrid(noteData) {
         return;
     }
     
-    const keyHeight = 20; // Height of each note row  
-    const unitWidth = 20; // Width of each grid unit
+    const keyHeight = 20;
+    const unitWidth = 20 * zoomLevel;
     
-    // Check for duplicates (simple check)
+    // Check for duplicates
     const existingNotes = noteGrid.querySelectorAll('.grid-note');
     for (let existingNote of existingNotes) {
         const existingPosition = parseFloat(existingNote.getAttribute('data-position') || '0');
@@ -351,24 +712,22 @@ function addNoteToGrid(noteData) {
     // Create the note element
     const noteElement = document.createElement('div');
     noteElement.className = 'grid-note';
-    noteElement.style.position = 'absolute'; // Critical!
+    noteElement.style.position = 'absolute';
     noteElement.style.top = `${noteIndex * keyHeight}px`;
-    noteElement.style.left = `${position * (unitWidth / 4)}px`; // Position in 16th note units
-    noteElement.style.width = `${duration * (unitWidth / 4)}px`; // Duration in 16th note units
-    noteElement.style.height = `${keyHeight - 2}px`; // Leave 2px margin
+    noteElement.style.left = `${position * (unitWidth / 4)}px`;
+    noteElement.style.width = `${duration * (unitWidth / 4)}px`;
+    noteElement.style.height = `${keyHeight - 2}px`;
     
-    // Add data attributes (using same format as original)
+    // Add data attributes
     noteElement.setAttribute('data-note', note);
     noteElement.setAttribute('data-position', position);
     noteElement.setAttribute('data-duration', duration);
     
-    // Add unique ID for debugging
+    // Add unique ID
     const uniqueId = 'note_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
     noteElement.setAttribute('data-id', uniqueId);
     
     console.log(`✅ Created note element: ${note} at ${position}, duration ${duration}`);
-    console.log("   Position: top=${noteElement.style.top}, left=${noteElement.style.left}");
-    console.log("   Size: width=${noteElement.style.width}, height=${noteElement.style.height}");
     
     // Add resize handle
     const resizeHandle = document.createElement('div');
@@ -388,13 +747,299 @@ function addNoteToGrid(noteData) {
     // Add to grid
     noteGrid.appendChild(noteElement);
     
+    updatePerformanceStats();
     console.log("🎵 Note added to grid successfully!");
 }
 
-// Add event listeners to note element
+// Delete note
+function deleteNote(noteElement) {
+    if (!noteElement) return;
+    
+    // Remove from selected notes
+    selectedNotes.delete(noteElement);
+    
+    // Remove from current song data
+    if (currentSong && currentSong.notes) {
+        const noteValue = noteElement.getAttribute('data-note');
+        const position = parseFloat(noteElement.getAttribute('data-position'));
+        
+        currentSong.notes = currentSong.notes.filter(note => 
+            !(note.note === noteValue && Math.abs(note.position - position) < 0.1)
+        );
+    }
+    
+    // Animate removal
+    noteElement.classList.add('deleting');
+    setTimeout(() => {
+        if (noteElement.parentNode) {
+            noteElement.parentNode.removeChild(noteElement);
+        }
+        updatePerformanceStats();
+        updateSaveButtonState();
+    }, 300);
+}
+
+// Setup enhanced features
+function setupEnhancedFeatures() {
+    console.log("🎵 Setting up enhanced features...");
+    
+    setupMiniToolbar();
+    setupAutoSave();
+    setupZoomControls();
+    
+    // Duration buttons
+    durationBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            durationBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentNoteDuration = parseFloat(btn.dataset.value);
+            console.log("Duration changed to:", currentNoteDuration);
+        });
+    });
+    
+    // Save mode radio buttons
+    saveModeRadios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            if (radio.checked) {
+                forcedSaveMode = radio.value;
+                console.log("Save mode changed to:", forcedSaveMode);
+            }
+        });
+    });
+    
+    // Playback controls
+    if (playEditorBtn) {
+        playEditorBtn.addEventListener('click', startPlayback);
+    }
+    
+    if (stopEditorBtn) {
+        stopEditorBtn.addEventListener('click', stopPlayback);
+    }
+    
+    // Global mouse events for drag and resize
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    console.log("✅ Enhanced features set up");
+}
+
+// Setup mini toolbar
+function setupMiniToolbar() {
+    if (!miniToolbar) return;
+    
+    const toolButtons = miniToolbar.querySelectorAll('.mini-btn');
+    
+    toolButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const toolId = this.id;
+            
+            // Remove active class from all buttons
+            toolButtons.forEach(b => b.classList.remove('active'));
+            
+            // Add active class to clicked button
+            this.classList.add('active');
+            
+            // Handle tool selection
+            if (toolId === 'select-tool') {
+                currentTool = 'select';
+                document.body.style.cursor = 'default';
+            } else if (toolId === 'pencil-tool') {
+                currentTool = 'pencil';
+                document.body.style.cursor = 'default';
+            } else if (toolId === 'eraser-tool') {
+                currentTool = 'eraser';
+                document.body.style.cursor = 'url("data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'20\' height=\'20\' viewBox=\'0 0 20 20\'><rect x=\'2\' y=\'2\' width=\'16\' height=\'16\' fill=\'%23ff4444\' opacity=\'0.8\'/></svg>") 10 10, auto';
+            } else if (toolId === 'zoom-in') {
+                handleZoom(0.2);
+                // Reset to previous tool
+                setTimeout(() => {
+                    const prevActive = miniToolbar.querySelector('.mini-btn.active[id$="-tool"]');
+                    if (prevActive) {
+                        prevActive.click();
+                    }
+                }, 100);
+            } else if (toolId === 'zoom-out') {
+                handleZoom(-0.2);
+                // Reset to previous tool
+                setTimeout(() => {
+                    const prevActive = miniToolbar.querySelector('.mini-btn.active[id$="-tool"]');
+                    if (prevActive) {
+                        prevActive.click();
+                    }
+                }, 100);
+            }
+            
+            console.log("Tool changed to:", currentTool);
+        });
+    });
+}
+
+// Handle zoom
+function handleZoom(delta) {
+    zoomLevel = Math.max(0.5, Math.min(3, zoomLevel + delta));
+    createGridLines();
+    createTimelineRuler();
+    
+    showNotification(`Zoom: ${Math.round(zoomLevel * 100)}%`, 'info');
+}
+
+// Setup auto save
+function setupAutoSave() {
+    if (!autoSaveEnabled) return;
+    
+    setInterval(() => {
+        if (currentSong && Date.now() - lastSaveTime > 30000) { // 30 seconds
+            saveSong(true); // Auto save
+        }
+    }, 5000); // Check every 5 seconds
+}
+
+// Update save status indicator
+function updateSaveStatusIndicator(status) {
+    if (!saveStatusIndicator) return;
+    
+    const statusDot = saveStatusIndicator.querySelector('.status-dot');
+    const statusText = saveStatusIndicator.querySelector('span');
+    
+    // Remove all status classes
+    saveStatusIndicator.classList.remove('saved', 'unsaved', 'saving');
+    statusDot.classList.remove('saved', 'unsaved', 'saving');
+    
+    // Add current status
+    saveStatusIndicator.classList.add(status);
+    statusDot.classList.add(status);
+    
+    // Update text
+    switch (status) {
+        case 'saved':
+            statusText.textContent = 'Saved';
+            break;
+        case 'unsaved':
+            statusText.textContent = 'Unsaved';
+            break;
+        case 'saving':
+            statusText.textContent = 'Saving...';
+            break;
+    }
+}
+
+// Update performance stats
+function updatePerformanceStats() {
+    if (!performanceStats) return;
+    
+    const noteCountEl = document.getElementById('note-count');
+    const songLengthEl = document.getElementById('song-length');
+    const currentBpmEl = document.getElementById('current-bpm');
+    const songKeyEl = document.getElementById('song-key');
+    
+    // Count notes
+    const noteCount = noteGrid ? noteGrid.querySelectorAll('.grid-note').length : 0;
+    if (noteCountEl) noteCountEl.textContent = noteCount;
+    
+    // Calculate song length
+    if (songLengthEl) {
+        const bpm = parseInt(document.getElementById('song-bpm')?.value) || 120;
+        const length = (pianoRollLength * 4) / (bpm / 60); // Length in seconds
+        const minutes = Math.floor(length / 60);
+        const seconds = Math.floor(length % 60);
+        songLengthEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+    
+    // Update BPM
+    if (currentBpmEl) {
+        const bpm = document.getElementById('song-bpm')?.value || '120';
+        currentBpmEl.textContent = bpm;
+    }
+    
+    // Analyze key (simple detection based on notes)
+    if (songKeyEl && currentSong && currentSong.notes) {
+        const keySignature = detectKey(currentSong.notes);
+        songKeyEl.textContent = keySignature;
+    }
+}
+
+// Simple key detection
+function detectKey(notes) {
+    if (!notes || notes.length === 0) return 'C';
+    
+    const noteCount = {};
+    notes.forEach(note => {
+        const baseName = note.note.replace(/\d+/, '').toLowerCase();
+        noteCount[baseName] = (noteCount[baseName] || 0) + 1;
+    });
+    
+    // Find most common note
+    const mostCommon = Object.keys(noteCount).reduce((a, b) => 
+        noteCount[a] > noteCount[b] ? a : b
+    );
+    
+    return mostCommon.toUpperCase();
+}
+
+// Enhanced playback with visual indicator
+function startPlayback() {
+    if (isPlaying) return;
+    
+    isPlaying = true;
+    playbackPosition = 0;
+    
+    if (playbackLine) {
+        playbackLine.classList.add('playing');
+    }
+    
+    playbackInterval = setInterval(() => {
+        updatePlaybackPosition();
+        
+        if (playbackPosition >= pianoRollLength * 4) { // End of song
+            stopPlayback();
+        }
+    }, 100); // Update every 100ms
+    
+    showNotification('Playback started', 'info');
+}
+
+// Stop playback
+function stopPlayback() {
+    isPlaying = false;
+    playbackPosition = 0;
+    
+    if (playbackInterval) {
+        clearInterval(playbackInterval);
+        playbackInterval = null;
+    }
+    
+    if (playbackLine) {
+        playbackLine.classList.remove('playing');
+        playbackLine.style.left = '0px';
+    }
+    
+    showNotification('Playback stopped', 'info');
+}
+
+// Update playback position
+function updatePlaybackPosition() {
+    if (!playbackLine || !noteGrid) return;
+    
+    const gridWidth = noteGrid.offsetWidth;
+    const progress = playbackPosition / (pianoRollLength * 4);
+    playbackLine.style.left = `${progress * gridWidth}px`;
+    playbackPosition += 0.1; // Increment playback position
+}
+
+// Add note event listeners
 function addNoteEventListeners(noteElement) {
     // Mouse down on note
     noteElement.addEventListener('mousedown', (e) => {
+        if (currentTool === 'eraser') {
+            deleteNote(noteElement);
+            return;
+        }
+        
+        if (currentTool === 'select') {
+            toggleNoteSelection(noteElement);
+            return;
+        }
+        
         if (e.target.classList.contains('resize-handle')) {
             isResizing = true;
             startX = e.clientX;
@@ -412,14 +1057,16 @@ function addNoteEventListeners(noteElement) {
         e.stopPropagation();
     });
     
-    // Double click to delete
+    // Double click to delete (if using pencil tool)
     noteElement.addEventListener('dblclick', () => {
-        deleteNote(noteElement);
+        if (currentTool === 'pencil') {
+            deleteNote(noteElement);
+        }
     });
 }
 
-// Handle mouse move (for dragging and resizing)
-export function handleMouseMove(e) {
+// Handle mouse move (Enhanced version)
+function handleMouseMove(e) {
     if (!isDragging && !isResizing) return;
     if (!draggedElement) return;
     
@@ -430,54 +1077,49 @@ export function handleMouseMove(e) {
     const deltaX = e.clientX - startX;
     
     if (isDragging) {
-        // Update position
         const newLeft = startLeft + deltaX;
         const maxLeft = rect.width - draggedElement.offsetWidth;
         draggedElement.style.left = Math.max(0, Math.min(newLeft, maxLeft)) + 'px';
     } else if (isResizing) {
-        // Update width
         const newWidth = startWidth + deltaX;
-        const minWidth = 10; // Minimum width
+        const minWidth = 10;
         draggedElement.style.width = Math.max(minWidth, newWidth) + 'px';
     }
 }
 
-// Handle mouse up (end dragging/resizing)
-export function handleMouseUp(e) {
+// Handle mouse up (Enhanced version)
+function handleMouseUp(e) {
     if (isDragging || isResizing) {
         if (draggedElement) {
             // Update note data
             const noteGrid = document.querySelector('.note-grid');
             if (noteGrid) {
                 const rect = noteGrid.getBoundingClientRect();
-                const rollLength = parseInt(document.getElementById('roll-length')?.value) || 32;
-                const totalSubdivisions = rollLength * 4 * 4;
+                const unitWidth = 20 * zoomLevel;
                 
-                // Calculate new time and duration
-                const leftPercent = (draggedElement.offsetLeft / rect.width) * 100;
-                const widthPercent = (draggedElement.offsetWidth / rect.width) * 100;
+                const newPosition = (draggedElement.offsetLeft / (unitWidth / 4));
+                const newDuration = (draggedElement.offsetWidth / (unitWidth / 4));
                 
-                const newTime = (leftPercent / 100) * totalSubdivisions;
-                const newDuration = (widthPercent / 100) * totalSubdivisions;
+                // Update attributes
+                draggedElement.setAttribute('data-position', newPosition.toFixed(2));
+                draggedElement.setAttribute('data-duration', newDuration.toFixed(2));
                 
-                // Update dataset
-                draggedElement.dataset.time = newTime.toFixed(2);
-                draggedElement.dataset.duration = newDuration.toFixed(2);
-                
-                // Update song data if editing
+                // Update song data
                 if (currentSong && currentSong.notes) {
-                    const oldKey = draggedElement.dataset.key;
-                    const oldTime = parseFloat(draggedElement.dataset.time);
-                    
+                    const noteValue = draggedElement.getAttribute('data-note');
                     const noteIndex = currentSong.notes.findIndex(note => 
-                        note.key === oldKey && Math.abs(note.time - oldTime) < 0.1
+                        note.note === noteValue && 
+                        Math.abs(note.position - parseFloat(draggedElement.getAttribute('data-position'))) < 0.1
                     );
                     
                     if (noteIndex >= 0) {
-                        currentSong.notes[noteIndex].time = newTime;
+                        currentSong.notes[noteIndex].position = newPosition;
                         currentSong.notes[noteIndex].duration = newDuration;
                     }
                 }
+                
+                updateSaveButtonState();
+                updatePerformanceStats();
             }
             
             draggedElement.classList.remove('dragging');
@@ -487,1237 +1129,169 @@ export function handleMouseUp(e) {
         
         isDragging = false;
         isResizing = false;
-        
-        // Prevent click event from creating new note immediately after drag/resize
         clickProcessedOnNote = true;
+        
         setTimeout(() => {
             clickProcessedOnNote = false;
-        }, 100);
+        }, 50);
     }
 }
 
-// Delete note
-function deleteNote(noteElement) {
-    const key = noteElement.dataset.key;
-    const time = parseFloat(noteElement.dataset.time);
+// Create editor piano keys
+function createEditorPianoKeys() {
+    if (!pianoKeysContainer) return;
     
-    // Remove from current song
-    if (currentSong && currentSong.notes) {
-        const index = currentSong.notes.findIndex(note => 
-            note.key === key && Math.abs(note.time - time) < 0.1
-        );
-        if (index >= 0) {
-            currentSong.notes.splice(index, 1);
-        }
-    }
+    pianoKeysContainer.innerHTML = '';
     
-    // Remove from DOM
-    noteElement.remove();
-    updateSaveButtonState();
+    const keyHeight = 20;
+    const reversedKeyOrder = [...keyOrder].reverse();
+    
+    reversedKeyOrder.forEach((note, index) => {
+        const keyElement = document.createElement('div');
+        keyElement.className = `editor-key ${keyColors[note]}-key`;
+        keyElement.style.height = `${keyHeight}px`;
+        keyElement.style.lineHeight = `${keyHeight}px`;
+        keyElement.textContent = note.toUpperCase();
+        keyElement.setAttribute('data-note', note);
+        
+        // Add click listener to play note
+        keyElement.addEventListener('click', () => {
+            playNoteSound(note);
+        });
+        
+        pianoKeysContainer.appendChild(keyElement);
+    });
 }
 
-// Play editor song
-export function playEditorSong() {
-    if (!currentSong || !currentSong.notes || currentSong.notes.length === 0) {
-        showNotification('Không có note nào để phát', 'warning');
-        return;
-    }
-    
-    if (isPlaying) {
-        stopEditorSong();
-        return;
-    }
-    
-    isPlaying = true;
-    playbackPosition = 0;
-    
-    const playBtn = document.getElementById('play-editor-btn');
-    const stopBtn = document.getElementById('stop-editor-btn');
-    
-    if (playBtn) playBtn.disabled = true;
-    if (stopBtn) stopBtn.disabled = false;
-    
-    // Sort notes by time
-    const sortedNotes = [...currentSong.notes].sort((a, b) => a.time - b.time);
-    const bpm = currentSong.bpm || 120;
-    const beatDuration = 60000 / bpm; // ms per beat
-    
-    let noteIndex = 0;
-    const startTime = Date.now();
-    
-    playbackInterval = setInterval(() => {
-        const elapsedTime = Date.now() - startTime;
-        const currentBeat = elapsedTime / beatDuration;
-        
-        // Play notes that should be triggered now
-        while (noteIndex < sortedNotes.length && sortedNotes[noteIndex].time <= currentBeat) {
-            const note = sortedNotes[noteIndex];
-            playNoteSound(note.key);
-            noteIndex++;
-        }
-        
-        // Update playback indicator
-        updatePlaybackIndicator(currentBeat);
-        
-        // Stop when all notes played
-        if (noteIndex >= sortedNotes.length) {
-            stopEditorSong();
-        }
-    }, 50); // Update every 50ms
-    
-    showNotification('Bắt đầu phát', 'info');
-}
-
-// Stop editor song
-export function stopEditorSong() {
-    if (playbackInterval) {
-        clearInterval(playbackInterval);
-        playbackInterval = null;
-    }
-    
-    isPlaying = false;
-    playbackPosition = 0;
-    
-    const playBtn = document.getElementById('play-editor-btn');
-    const stopBtn = document.getElementById('stop-editor-btn');
-    
-    if (playBtn) playBtn.disabled = false;
-    if (stopBtn) stopBtn.disabled = true;
-    
-    // Remove playback indicator
-    removePlaybackIndicator();
-    
-    showNotification('Dừng phát', 'info');
-}
-
-// Update playback indicator
-function updatePlaybackIndicator(currentBeat) {
-    const noteGrid = document.querySelector('.note-grid');
-    if (!noteGrid) return;
-    
-    // Remove existing indicator
-    removePlaybackIndicator();
-    
-    // Create new indicator
-    const indicator = document.createElement('div');
-    indicator.className = 'playback-indicator';
-    indicator.style.position = 'absolute';
-    indicator.style.left = `${(currentBeat / 128) * 100}%`; // Assuming 128 beat total
-    indicator.style.top = '0';
-    indicator.style.width = '2px';
-    indicator.style.height = '100%';
-    indicator.style.background = '#ff4444';
-    indicator.style.zIndex = '1000';
-    indicator.style.pointerEvents = 'none';
-    
-    noteGrid.appendChild(indicator);
-}
-
-// Remove playback indicator
-function removePlaybackIndicator() {
-    const indicator = document.querySelector('.playback-indicator');
-    if (indicator) {
-        indicator.remove();
-    }
-}
-
-// Play note sound
-function playNoteSound(key) {
-    // Create audio context if needed
-    try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        
-        // Simple tone generation
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        // Note frequencies (simplified)
-        const frequencies = {
-            'c5': 523.25, 'd5': 587.33, 'e5': 659.25, 'f5': 698.46, 'g5': 783.99, 'a5': 880.00, 'b5': 987.77,
-            'c6': 1046.50, 'd6': 1174.66, 'e6': 1318.51, 'f6': 1396.91, 'g6': 1567.98, 'a6': 1760.00, 'b6': 1975.53,
-            'c7': 2093.00
-        };
-        
-        oscillator.frequency.setValueAtTime(frequencies[key] || 440, audioContext.currentTime);
-        oscillator.type = 'sine';
-        
-        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.5);
-    } catch (error) {
-        console.log("Audio playback not available:", error);
-    }
-}
-
-// Toggle song list (for mobile)
-export function toggleSongList() {
-    const songListContainer = document.querySelector('.song-list-container');
-    const toggle = document.getElementById('song-list-toggle');
-    
-    if (songListContainer && toggle) {
-        const isCollapsed = songListContainer.classList.contains('collapsed');
-        
-        if (isCollapsed) {
-            songListContainer.classList.remove('collapsed');
-            toggle.textContent = '◀';
-        } else {
-            songListContainer.classList.add('collapsed');
-            toggle.textContent = '▶';
-        }
-    }
-}
-
-// Save song
-export function saveSong() {
-    if (!currentSong) {
-        showErrorMessage('Không có bài hát để lưu');
-        return;
-    }
-    
-    // Get song details from form
-    const songNameInput = document.getElementById('song-name');
-    const songBpmInput = document.getElementById('song-bpm');
-    const rollLengthInput = document.getElementById('roll-length');
-    
-    if (songNameInput) currentSong.name = songNameInput.value || 'Untitled';
-    if (songBpmInput) currentSong.bpm = parseInt(songBpmInput.value) || 120;
-    if (rollLengthInput) currentSong.rollLength = parseInt(rollLengthInput.value) || 32;
-    
-    currentSong.updatedAt = new Date().toISOString();
-    
-    // Check save mode
-    const saveMode = getCurrentSaveMode();
-    
-    if (saveMode === 'server') {
-        saveToServer();
-    } else {
-        saveToLocalStorage();
-    }
-}
-
-// Save to localStorage
-function saveToLocalStorage() {
-    try {
-        const songs = getSongs();
-        const existingIndex = songs.findIndex(s => s.id === currentSong.id);
-        
-        if (existingIndex >= 0) {
-            songs[existingIndex] = { ...currentSong };
-        } else {
-            songs.push({ ...currentSong });
-        }
-        
-        setSongs(songs);
-        saveSongsToLocalStorage();
-        updateSongList();
-        
-        showNotification(`Đã lưu "${currentSong.name}" vào Local Storage`, 'success');
-        console.log("Song saved to localStorage:", currentSong.name);
-    } catch (error) {
-        console.error("Error saving to localStorage:", error);
-        showErrorMessage('Lỗi khi lưu vào Local Storage');
-    }
-}
-
-// Save to server (Firebase)
-async function saveToServer() {
-    try {
-        if (!window.firebaseApp || !window.firebaseApp.db) {
-            throw new Error("Firebase not available");
-        }
-        
-        const user = getCurrentUser();
-        if (!user) {
-            throw new Error("User not authenticated");
-        }
-        
-        // Prepare song data for server
-        const songData = {
-            ...currentSong,
-            userId: user.uid,
-            userEmail: user.email,
-            isFirebaseSong: true
-        };
-        
-        // Update ID format for Firebase
-        if (!songData.id.startsWith('firebase_')) {
-            songData.id = 'firebase_' + generateId();
-        }
-        
-        // Save to Firestore
-        await window.firebaseApp.db.collection('songs').doc(songData.id).set(songData);
-        
-        // Update local song list
-        const songs = getSongs();
-        const existingIndex = songs.findIndex(s => s.id === currentSong.id);
-        
-        if (existingIndex >= 0) {
-            songs[existingIndex] = { ...songData };
-        } else {
-            songs.push({ ...songData });
-        }
-        
-        setSongs(songs);
-        currentSong = songData;
-        updateSongList();
-        
-        showNotification(`Đã lưu "${songData.name}" lên Firebase`, 'success');
-        console.log("Song saved to Firebase:", songData.name);
-    } catch (error) {
-        console.error("Error saving to Firebase:", error);
-        showErrorMessage('Lỗi khi lưu lên server: ' + error.message);
-    }
-}
-
-// Get current save mode
-function getCurrentSaveMode() {
-    // Use forced save mode if set, otherwise check radio buttons
-    if (forcedSaveMode) {
-        return forcedSaveMode;
-    }
-    
-    const serverRadio = document.querySelector('input[name="save-mode"][value="server"]');
-    return serverRadio && serverRadio.checked ? 'server' : 'local';
+// Play note sound (placeholder)
+function playNoteSound(note) {
+    console.log(`🎵 Playing note: ${note}`);
+    // TODO: Implement actual audio playback
 }
 
 // Update save button state
 function updateSaveButtonState() {
-    const saveBtn = document.getElementById('save-song-btn');
-    if (saveBtn) {
-        if (currentSong && currentSong.name) {
-            saveBtn.disabled = false;
-            saveBtn.textContent = 'Save';
-        } else {
-            saveBtn.disabled = true;
-            saveBtn.textContent = 'Save';
-        }
+    if (currentSong) {
+        updateSaveStatusIndicator('unsaved');
+        lastSaveTime = Date.now();
     }
 }
 
-// Clear song inputs
-function clearSongInputs() {
-    const songNameInput = document.getElementById('song-name');
-    const songBpmInput = document.getElementById('song-bpm');
-    const rollLengthInput = document.getElementById('roll-length');
+// Setup event listeners
+function setupEventListeners() {
+    console.log("🎵 Setting up Song Manager event listeners...");
     
-    if (songNameInput) songNameInput.value = '';
-    if (songBpmInput) songBpmInput.value = '120';
-    if (rollLengthInput) rollLengthInput.value = '32';
-}
-
-// Update song list display (Enhanced version like the original)
-export function updateSongList() {
-    const songList = document.getElementById('song-list');
-    if (!songList) {
-        console.error("Không tìm thấy phần tử song-list!");
-        return;
-    }
-
-    console.log(`[updateSongList] Bắt đầu cập nhật danh sách`);
-    
-    try {
-        // Clear existing content
-        while (songList.firstChild) {
-            songList.removeChild(songList.firstChild);
-        }
-
-        const songs = getSongs();
-        
-        // Check if songs is valid array
-        if (!Array.isArray(songs)) {
-            console.error("[updateSongList] songs không phải là mảng:", songs);
-            const errorMessage = document.createElement('div');
-            errorMessage.className = 'error-songs-message';
-            errorMessage.textContent = 'Lỗi dữ liệu bài hát!';
-            errorMessage.style.textAlign = 'center';
-            errorMessage.style.padding = '20px';
-            errorMessage.style.color = 'rgba(255, 71, 87, 0.9)';
-            songList.appendChild(errorMessage);
-            return;
-        }
-
-        // Sort songs by creation time
-        try {
-            songs.sort((a, b) => {
-                if (a.id && b.id) {
-                    const aTime = a.id.split('_')[1];
-                    const bTime = b.id.split('_')[1];
-                    if (aTime && bTime) {
-                        return parseInt(bTime) - parseInt(aTime); // Newest first
-                    }
-                }
-                return 0;
-            });
-        } catch (sortError) {
-            console.error("[updateSongList] Lỗi khi sắp xếp bài hát:", sortError);
-        }
-
-        // Show empty message if no songs
-        if (songs.length === 0) {
-            const emptyMessage = document.createElement('div');
-            emptyMessage.className = 'empty-songs-message';
-            emptyMessage.textContent = 'Chưa có bài hát nào';
-            emptyMessage.style.textAlign = 'center';
-            emptyMessage.style.padding = '20px';
-            emptyMessage.style.color = 'rgba(255, 255, 255, 0.5)';
-            songList.appendChild(emptyMessage);
-            console.log("[updateSongList] Không có bài hát để hiển thị");
-            return;
-        }
-
-        // Create document fragment for better performance
-        const fragment = document.createDocumentFragment();
-        let validSongCount = 0;
-
-        console.log("[updateSongList] Danh sách bài hát:", songs.map(s => s ? s.id : 'null').join(', '));
-
-        songs.forEach((song, index) => {
-            try {
-                // Validate song
-                if (!song || !song.id || !song.name) {
-                    console.error(`[updateSongList] Bài hát không hợp lệ tại vị trí ${index}:`, song);
-                    return;
-                }
-
-                const songItem = createSongItem(song);
-                
-                // Mark active song
-                if (currentSong && song.id === currentSong.id) {
-                    songItem.classList.add('active-song');
-                }
-
-                fragment.appendChild(songItem);
-                validSongCount++;
-            } catch (error) {
-                console.error(`[updateSongList] Lỗi khi tạo phần tử cho bài hát ${index}:`, error);
-            }
-        });
-
-        // Add fragment to song list
-        songList.appendChild(fragment);
-        console.log(`[updateSongList] Đã render ${validSongCount}/${songs.length} bài hát`);
-
-        // Add active song styles if not exist
-        if (!document.getElementById('song-list-styles')) {
-            const styleEl = document.createElement('style');
-            styleEl.id = 'song-list-styles';
-            styleEl.textContent = `
-                .song-item.active-song {
-                    background: rgba(54, 159, 255, 0.3) !important;
-                    border-left: 3px solid #36c2ff !important;
-                    box-shadow: 0 0 5px rgba(54, 159, 255, 0.5) !important;
-                }
-            `;
-            document.head.appendChild(styleEl);
-        }
-
-        // Scroll to active song
-        if (currentSong) {
-            const activeSong = songList.querySelector('.active-song');
-            if (activeSong) {
-                setTimeout(() => {
-                    activeSong.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }, 100);
-            }
-        }
-
-        // Add event listeners with delay to ensure DOM is rendered
-        setTimeout(() => {
-            addSongItemEventListeners();
-        }, 100);
-
-        console.log("[updateSongList] Cập nhật danh sách bài hát hoàn tất");
-    } catch (error) {
-        console.error("[updateSongList] Lỗi nghiêm trọng khi cập nhật danh sách bài hát:", error);
-        
-        showErrorMessage("Lỗi hiển thị danh sách bài hát. Vui lòng nhấn nút Làm mới.");
-        
-        // Create refresh button
-        const refreshButton = document.createElement('button');
-        refreshButton.textContent = 'Làm mới danh sách';
-        refreshButton.style.margin = '20px auto';
-        refreshButton.style.display = 'block';
-        refreshButton.style.padding = '10px 20px';
-        refreshButton.style.background = 'rgba(10, 189, 227, 0.5)';
-        refreshButton.style.border = 'none';
-        refreshButton.style.borderRadius = '5px';
-        refreshButton.style.color = 'white';
-        refreshButton.style.cursor = 'pointer';
-        refreshButton.addEventListener('click', () => updateSongList());
-        
-        // Clear content and add button
-        while (songList.firstChild) {
-            songList.removeChild(songList.firstChild);
-        }
-        songList.appendChild(refreshButton);
-    }
-}
-
-// Create song item element
-function createSongItem(song) {
-    const songItem = document.createElement('div');
-    songItem.className = 'song-item';
-    songItem.dataset.songId = song.id;
-    
-    const storageInfo = getSongStorageInfo(song);
-    
-    songItem.innerHTML = `
-        <div class="song-header">
-            <div class="song-name">${song.name}</div>
-            <div class="storage-indicator" title="${storageInfo.tooltip}">
-                ${storageInfo.icon}
-            </div>
-        </div>
-        <div class="song-info">
-            ${song.notes ? song.notes.length : 0} notes
-            <span class="storage-label">${storageInfo.label}</span>
-        </div>
-        <div class="song-actions">
-            ${storageInfo.type !== 'server-readonly' ? '<button class="edit-song-btn" data-song-id="' + song.id + '">Edit</button>' : ''}
-            <button class="play-song-btn" data-song-id="${song.id}">Play</button>
-            ${storageInfo.type !== 'server-readonly' ? '<button class="delete-song-btn" data-song-id="' + song.id + '">Delete</button>' : ''}
-        </div>
-    `;
-    
-    // Add storage type attribute
-    songItem.setAttribute('data-storage-type', storageInfo.type);
-    
-    return songItem;
-}
-
-// Add event listeners to song items
-function addSongItemEventListeners() {
-    console.log("=== ADDING SONG ITEM EVENT LISTENERS ===");
-    
-    // Edit song buttons
-    const editButtons = document.querySelectorAll('.edit-song-btn');
-    console.log(`Found ${editButtons.length} edit buttons`);
-    editButtons.forEach(btn => {
-        btn.addEventListener('click', function() {
-            const songId = this.dataset.songId;
-            editSong(songId);
-        });
-    });
-    
-    // Play song buttons
-    const playButtons = document.querySelectorAll('.play-song-btn');
-    console.log(`Found ${playButtons.length} play buttons`);
-    playButtons.forEach(btn => {
-        btn.addEventListener('click', function() {
-            const songId = this.dataset.songId;
-            playSong(songId);
-        });
-    });
-    
-    // Delete song buttons with enhanced confirmation
-    const deleteButtons = document.querySelectorAll('.delete-song-btn');
-    console.log(`Found ${deleteButtons.length} delete buttons`);
-    deleteButtons.forEach(btn => {
-        btn.addEventListener('click', function() {
-            const songId = this.dataset.songId;
-            const songItem = this.closest('.song-item');
-            const songNameElement = songItem?.querySelector('.song-name');
-            const songName = songNameElement ? songNameElement.textContent : 'Unnamed Song';
-            
-            showDeleteConfirmation(songItem, songId, songName);
-        });
-    });
-}
-
-// Play song
-function playSong(songId) {
-    const songs = getSongs();
-    const song = songs.find(s => s.id === songId);
-    
-    if (!song) {
-        showErrorMessage('Không tìm thấy bài hát');
-        return;
+    if (newSongBtn) {
+        newSongBtn.addEventListener('click', createNewSong);
     }
     
-    // Set current game song
-    if (window.setCurrentSong) {
-        window.setCurrentSong(song);
+    if (importSongBtn) {
+        importSongBtn.addEventListener('click', importSong);
     }
     
-    // Switch to game mode
-    if (window.switchMode) {
-        window.switchMode('game');
+    if (saveSongBtn) {
+        saveSongBtn.addEventListener('click', () => saveSong(false));
     }
-    
-    showNotification(`Đã chọn bài: ${song.name}`, 'success');
-}
-
-// Delete song
-function deleteSong(songId) {
-    if (!confirm('Bạn có chắc chắn muốn xóa bài hát này?')) {
-        return;
-    }
-    
-    const songs = getSongs();
-    const songIndex = songs.findIndex(s => s.id === songId);
-    
-    if (songIndex === -1) {
-        showErrorMessage('Không tìm thấy bài hát');
-        return;
-    }
-    
-    const song = songs[songIndex];
-    
-    // Delete from Firebase if needed
-    if (song.isFirebaseSong || song.id.startsWith('firebase_')) {
-        deleteFromFirebase(songId);
-    }
-    
-    // Remove from local array
-    songs.splice(songIndex, 1);
-    setSongs(songs);
-    saveSongsToLocalStorage();
-    updateSongList();
-    
-    showNotification(`Đã xóa bài hát: ${song.name}`, 'info');
-}
-
-// Delete from Firebase
-async function deleteFromFirebase(songId) {
-    try {
-        if (window.firebaseApp && window.firebaseApp.db) {
-            await window.firebaseApp.db.collection('songs').doc(songId).delete();
-            console.log("Song deleted from Firebase:", songId);
-        }
-    } catch (error) {
-        console.error("Error deleting from Firebase:", error);
-    }
-}
-
-// Setup Save Mode Event Listeners
-function setupSaveModeEvents() {
-    if (!saveModeRadios || saveModeRadios.length === 0) {
-        console.warn("No save mode radio buttons found");
-        return;
-    }
-    
-    // Save mode radio button change
-    saveModeRadios.forEach(radio => {
-        radio.addEventListener('change', function() {
-            handleSaveModeChange(this.value);
-        });
-    });
-}
-
-// Handle save mode change
-function handleSaveModeChange(mode) {
-    console.log("Save mode changed to:", mode);
-    forcedSaveMode = mode;
-    
-    if (mode === 'server') {
-        // Check if user has permission
-        if (window.firebaseApp && window.firebaseApp.canSaveToServer(getCurrentUserRole())) {
-            showNotification('Server mode enabled for ' + getCurrentUserRole(), 'success');
-        } else {
-            showNotification('Server mode requires admin/moderator permissions', 'warning');
-            // Switch back to local mode
-            const localModeRadio = document.querySelector('input[name="save-mode"][value="local"]');
-            if (localModeRadio) {
-                localModeRadio.checked = true;
-            }
-            forcedSaveMode = 'local';
-        }
-    } else {
-        forcedSaveMode = 'local';
-    }
-    
-    updateSaveButtonStateAdvanced();
-}
-
-// Update save button state based on mode and user permissions
-function updateSaveButtonStateAdvanced() {
-    if (!saveSongBtn) return;
-    
-    if (forcedSaveMode === 'server') {
-        // Check if user has permission to save to server
-        if (window.firebaseApp && window.firebaseApp.canSaveToServer(getCurrentUserRole())) {
-            saveSongBtn.style.opacity = '1';
-            saveSongBtn.disabled = false;
-            saveSongBtn.title = 'Save to server (Firebase)';
-        } else {
-            saveSongBtn.style.opacity = '0.5';
-            saveSongBtn.disabled = true;
-            saveSongBtn.title = 'Server save requires admin/moderator permissions';
-        }
-    } else {
-        // Local storage mode
-        saveSongBtn.style.opacity = '1';
-        saveSongBtn.disabled = false;
-        saveSongBtn.title = 'Save to local storage';
-    }
-}
-
-// Setup grid and piano (wrapper function)
-function setupGridAndPiano() {
-    try {
-        createGridLines();
-        createEditorPianoKeys();
-        console.log("✅ Grid and piano setup complete");
-    } catch (error) {
-        console.error("❌ Grid and piano setup failed:", error);
-        throw error;
-    }
-}
-
-// Setup comprehensive event listeners
-function setupSongManagerEvents() {
-    console.log("=== SETTING UP SONG MANAGER EVENTS ===");
-    
-    // Check required elements
-    if (!saveSongBtn || !newSongBtn) {
-        console.error("Critical buttons not found!");
-        return;
-    }
-    
-    // Button event listeners
-    newSongBtn.addEventListener('click', function() {
-        console.log("New song button clicked!");
-        try {
-            createNewSong();
-        } catch (error) {
-            console.error("Error creating new song:", error);
-            showNotification('Error creating new song: ' + error.message, 'error');
-        }
-    });
-    
-    saveSongBtn.addEventListener('click', function() {
-        console.log("Save button clicked!");
-        console.log("Current song before save:", currentSong);
-        try {
-            saveSong();
-        } catch (error) {
-            console.error("Error saving song:", error);
-            showNotification('Error saving song: ' + error.message, 'error');
-        }
-    });
     
     if (exportSongBtn) {
         exportSongBtn.addEventListener('click', exportSong);
     }
     
-    if (importSongBtn) {
-        importSongBtn.addEventListener('click', function() {
-            console.log("Import song button clicked!");
-            try {
-                importSong();
-            } catch (error) {
-                console.error("Error importing song:", error);
-                showNotification('Error importing song: ' + error.message, 'error');
-            }
-        });
-    }
-    
-
-    
-    if (playEditorBtn) {
-        playEditorBtn.addEventListener('click', playEditorSong);
-    }
-    
-    if (stopEditorBtn) {
-        stopEditorBtn.addEventListener('click', stopEditorSong);
-        stopEditorBtn.disabled = true;
-    }
-    
-    // Duration buttons
-    if (durationBtns && durationBtns.length > 0) {
-        durationBtns.forEach(btn => {
-            btn.addEventListener('click', function() {
-                // Update active class
-                durationBtns.forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                
-                // Update current note duration
-                currentNoteDuration = parseFloat(this.getAttribute('data-value'));
-                console.log("Selected duration:", currentNoteDuration);
-            });
-        });
-    }
-    
-    // Grid event listeners
-    if (noteGrid) {
-        console.log("Setting up note grid click handler");
-        noteGrid.addEventListener('click', function(e) {
-            console.log("Grid click detected! Event:", e);
-            
-            // Skip if clicking on existing note
-            if (e.target.classList.contains('grid-note') || e.target.classList.contains('resize-handle')) {
-                console.log("Clicked on existing note/handle - skipping");
-                return;
-            }
-            
-            console.log("Attempting to create note...");
-            addNoteAtPosition(e);
-        });
-        
-        // Mouse leave event
-        noteGrid.addEventListener('mouseleave', function(e) {
-            if (isDragging || isResizing) {
-                console.log("Mouse left note grid while dragging/resizing, ending interaction");
-                isDragging = false;
-                isResizing = false;
-                if (currentDraggedNote) {
-                    currentDraggedNote.classList.remove('dragging');
-                    currentDraggedNote.style.zIndex = '';
-                    currentDraggedNote = null;
-                }
-            }
-        });
-    }
-    
-    // Global mouse events
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    
-    // Keyboard events
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Delete' && selectedNoteElement) {
-            console.log("Delete key pressed, removing selected note");
-            
-            selectedNoteElement.style.opacity = '0.3';
-            selectedNoteElement.classList.add('deleting');
-            
-            const noteToDelete = selectedNoteElement;
-            selectedNoteElement = null;
-            
-            setTimeout(function() {
-                deleteNote(noteToDelete);
-                showNotification("Note deleted", "info");
-            }, 100);
-        }
-    });
-    
-    // Setup save mode events
-    setupSaveModeEvents();
-    
-    // Mobile song list toggle - IMPROVED CALL
-    setupMobileSongListToggle();
-    
-    // Listen for orientation/resize changes with improved handling
-    let resizeTimeout;
-    window.addEventListener('resize', () => {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-            setupMobileSongListToggle();
-            console.log('Song Manager layout updated for resize');
-        }, 150);
-    });
-    
-    let orientationTimeout;
-    window.addEventListener('orientationchange', () => {
-        clearTimeout(orientationTimeout);
-        orientationTimeout = setTimeout(() => {
-            setupMobileSongListToggle();
-            console.log('Song Manager layout updated for orientation change');
-        }, 400);
-    });
-    
-    console.log("Song manager events setup complete with mobile support");
-}
-
-// Show enhanced delete confirmation dialog
-function showDeleteConfirmation(songItem, songId, songName) {
-    // Create confirmation overlay
-    const confirmDelete = document.createElement('div');
-    confirmDelete.className = 'confirm-delete';
-    confirmDelete.innerHTML = `
-        <div class="confirm-message">Xóa bài hát "${songName}"?</div>
-        <div class="confirm-buttons">
-            <button class="confirm-yes">Xóa</button>
-            <button class="confirm-no">Hủy</button>
-        </div>
-    `;
-    
-    // Style the confirmation overlay
-    confirmDelete.style.position = 'absolute';
-    confirmDelete.style.top = '0';
-    confirmDelete.style.left = '0';
-    confirmDelete.style.width = '100%';
-    confirmDelete.style.height = '100%';
-    confirmDelete.style.display = 'flex';
-    confirmDelete.style.flexDirection = 'column';
-    confirmDelete.style.justifyContent = 'center';
-    confirmDelete.style.alignItems = 'center';
-    confirmDelete.style.background = 'rgba(255, 71, 87, 0.9)';
-    confirmDelete.style.color = 'white';
-    confirmDelete.style.zIndex = '10';
-    confirmDelete.style.borderRadius = 'inherit';
-    
-    // Style buttons
-    const yesBtn = confirmDelete.querySelector('.confirm-yes');
-    yesBtn.style.background = 'rgba(255, 255, 255, 0.2)';
-    yesBtn.style.border = 'none';
-    yesBtn.style.color = 'white';
-    yesBtn.style.padding = '5px 15px';
-    yesBtn.style.margin = '0 5px';
-    yesBtn.style.borderRadius = '3px';
-    yesBtn.style.cursor = 'pointer';
-    
-    const noBtn = confirmDelete.querySelector('.confirm-no');
-    noBtn.style.background = 'rgba(255, 255, 255, 0.5)';
-    noBtn.style.border = 'none';
-    noBtn.style.color = 'black';
-    noBtn.style.padding = '5px 15px';
-    noBtn.style.margin = '0 5px';
-    noBtn.style.borderRadius = '3px';
-    noBtn.style.cursor = 'pointer';
-    
-    // Add event listeners
-    yesBtn.addEventListener('click', function() {
-        // Add fade-out effect
-        songItem.style.opacity = '0.5';
-        songItem.style.transition = 'opacity 0.3s';
-        
-        // Delete after animation
-        setTimeout(() => {
-            deleteSong(songId);
-        }, 300);
-    });
-    
-    noBtn.addEventListener('click', function() {
-        songItem.removeChild(confirmDelete);
-    });
-    
-    // Add to song item
-    songItem.style.position = 'relative';
-    songItem.appendChild(confirmDelete);
-}
-
-// Setup mobile song list toggle - IMPROVED VERSION
-function setupSongListToggle() {
+    // Song list toggle for mobile
+    const songListToggle = document.getElementById('song-list-toggle');
     const songListContainer = document.querySelector('.song-list-container');
-    const isMobileLandscape = window.innerWidth <= 900 && window.innerHeight < window.innerWidth;
-    
-    if (!songListContainer) return;
-    
-    // Remove existing toggle if any
-    const existingToggle = songListContainer.querySelector('.song-list-toggle');
-    if (existingToggle) {
-        existingToggle.remove();
+    if (songListToggle && songListContainer) {
+        songListToggle.addEventListener('click', () => {
+            songListContainer.classList.toggle('collapsed');
+            const isCollapsed = songListContainer.classList.contains('collapsed');
+            songListToggle.textContent = isCollapsed ? '▶' : '◀';
+            console.log("🎵 Song list toggle:", isCollapsed ? 'collapsed' : 'expanded');
+        });
     }
     
-    if (isMobileLandscape) {
-        // Create new toggle button
-        const toggle = document.createElement('div');
-        toggle.className = 'song-list-toggle';
-        toggle.innerHTML = '◀';
-        toggle.title = 'Toggle song list';
-        
-        // Add click handler
-        toggle.addEventListener('click', (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            
-            const isCollapsed = songListContainer.classList.contains('collapsed');
-            
-            if (isCollapsed) {
-                songListContainer.classList.remove('collapsed');
-                toggle.innerHTML = '◀';
-                console.log('Song list expanded');
-            } else {
-                songListContainer.classList.add('collapsed');
-                toggle.innerHTML = '▶';
-                console.log('Song list collapsed');
+    // Song list container header toggle for mobile
+    const songListHeader = songListContainer?.querySelector('h2');
+    if (songListHeader) {
+        songListHeader.addEventListener('click', () => {
+            if (songListContainer) {
+                songListContainer.classList.toggle('collapsed');
+                const isCollapsed = songListContainer.classList.contains('collapsed');
+                console.log("🎵 Song list header toggle:", isCollapsed ? 'collapsed' : 'expanded');
+            }
+        });
+    }
+    
+    // Song name input
+    if (songNameInput) {
+        songNameInput.addEventListener('input', () => {
+            updateSaveButtonState();
+        });
+    }
+    
+    // BPM input
+    if (songBpmInput) {
+        songBpmInput.addEventListener('input', () => {
+            updateSaveButtonState();
+            updatePerformanceStats();
+        });
+    }
+    
+    // Roll length input
+    if (rollLengthInput) {
+        rollLengthInput.addEventListener('input', () => {
+            pianoRollLength = parseInt(rollLengthInput.value) || 32;
+            createGridLines();
+            createTimelineRuler();
+            updateSaveButtonState();
+            updatePerformanceStats();
+        });
+    }
+    
+    // Grid interactions
+    if (noteGrid) {
+        noteGrid.addEventListener('click', addNoteAtPosition);
+        noteGrid.addEventListener('mousedown', (e) => {
+            if (currentTool === 'select' && !e.target.classList.contains('grid-note')) {
+                clearNoteSelection();
             }
         });
         
-        // Add touch support
-        toggle.addEventListener('touchstart', (e) => {
-            e.stopPropagation();
-        }, { passive: true });
-        
-        songListContainer.appendChild(toggle);
-        
-        // Auto-collapse on very small screens
-        if (window.innerHeight < 500 || window.innerWidth < 700) {
-            songListContainer.classList.add('collapsed');
-            toggle.innerHTML = '▶';
-            console.log('Auto-collapsed song list for small screen');
-        }
-        
-        console.log('Mobile song list toggle created for landscape mode');
-    } else {
-        // Ensure expanded on desktop
+        // Prevent context menu
+        noteGrid.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+    }
+    
+    console.log("✅ Song Manager event listeners set up");
+}
+
+// Initialize UI
+function initializeUI() {
+    console.log("🎵 Initializing Song Manager UI...");
+    
+    // Create initial song if none exists
+    if (!currentSong) {
+        createNewSong();
+    }
+    
+    // Initialize grid and timeline
+    createGridLines();
+    createTimelineRuler();
+    createEditorPianoKeys();
+    
+    // Update initial UI state
+    updateSaveStatusIndicator('saved');
+    updatePerformanceStats();
+    updateSaveButtonState();
+    
+    // Set initial collapsed state for mobile
+    const songListContainer = document.querySelector('.song-list-container');
+    if (songListContainer) {
+        // Start with expanded state on mobile
         songListContainer.classList.remove('collapsed');
-        console.log('Song list toggle removed for desktop mode');
-    }
-}
-
-
-
-// Enhanced mobile grid setup
-function setupMobileGridAndPiano() {
-    const isMobile = window.innerWidth <= 900;
-    
-    if (isMobile) {
-        console.log("Setting up mobile grid and piano");
-        
-        // Recreate grid for mobile
-        createGridLines();
-        createEditorPianoKeys();
-        
-        // Add mobile-specific event listeners
-        setupMobileNoteGridEvents();
-    }
-}
-
-// Setup mobile-specific note grid events
-function setupMobileNoteGridEvents() {
-    const noteGrid = document.querySelector('.note-grid');
-    if (!noteGrid) return;
-    
-    // Enhanced touch handling for mobile
-    noteGrid.addEventListener('touchstart', handleMobileTouchStart, { passive: false });
-    noteGrid.addEventListener('touchmove', handleMobileTouchMove, { passive: false });
-    noteGrid.addEventListener('touchend', handleMobileTouchEnd, { passive: false });
-    
-    console.log("Mobile note grid events setup");
-}
-
-// Handle mobile touch start
-function handleMobileTouchStart(e) {
-    e.preventDefault();
-    
-    if (e.touches.length === 1) {
-        const touch = e.touches[0];
-        const rect = e.target.getBoundingClientRect();
-        
-        // Convert touch to mouse-like event
-        const mouseEvent = {
-            clientX: touch.clientX,
-            clientY: touch.clientY,
-            target: e.target,
-            preventDefault: () => {},
-            isTouchEvent: true
-        };
-        
-        // Handle as regular click
-        if (e.target.classList.contains('grid-note')) {
-            // Handle note interaction
-            handleNoteMouseDown(mouseEvent);
-        } else {
-            // Handle grid click (add note)
-            addNoteAtPosition(mouseEvent);
-        }
-    }
-}
-
-// Handle mobile touch move
-function handleMobileTouchMove(e) {
-    e.preventDefault();
-    
-    if (isDragging && e.touches.length === 1) {
-        const touch = e.touches[0];
-        const mouseEvent = {
-            clientX: touch.clientX,
-            clientY: touch.clientY,
-            preventDefault: () => {}
-        };
-        
-        handleMouseMove(mouseEvent);
-    }
-}
-
-// Handle mobile touch end
-function handleMobileTouchEnd(e) {
-    e.preventDefault();
-    
-    if (isDragging || isResizing) {
-        const mouseEvent = {
-            preventDefault: () => {}
-        };
-        
-        handleMouseUp(mouseEvent);
-    }
-}
-
-// Handle note mouse down (for mobile compatibility)
-function handleNoteMouseDown(e) {
-    if (e.target.classList.contains('grid-note')) {
-        selectedNoteElement = e.target;
-        
-        // Check if clicking on resize handle
-        const rect = e.target.getBoundingClientRect();
-        const clickX = e.clientX - rect.left;
-        const noteWidth = rect.width;
-        
-        if (clickX > noteWidth - 10) {
-            // Resize mode
-            isResizing = true;
-            startX = e.clientX;
-            startWidth = parseFloat(e.target.style.width);
-            e.target.style.cursor = 'e-resize';
-        } else {
-            // Drag mode
-            isDragging = true;
-            startX = e.clientX;
-            startLeft = parseFloat(e.target.style.left);
-            e.target.style.cursor = 'move';
-        }
-        
-        draggedElement = e.target;
-        e.preventDefault();
-    }
-}
-
-// Enhanced window resize handler for mobile
-function handleMobileResize() {
-    const isMobile = window.innerWidth <= 900;
-    
-    if (isMobile && document.body.classList.contains('song-manager-mode')) {
-        console.log("Mobile resize detected, updating song manager layout");
-        
-        // Re-setup mobile elements
-        setupSongListToggle();
-        setupMobileGridAndPiano();
-        
-        // Adjust layout if needed
-        setTimeout(() => {
-            const songManager = document.getElementById('song-manager');
-            if (songManager && songManager.style.display !== 'none') {
-                loadSongIntoEditor(currentSong || {
-                    id: 'temp',
-                    name: 'New Song',
-                    bpm: 120,
-                    notes: [],
-                    rollLength: 32
-                });
-            }
-        }, 100);
-    }
-}
-
-// Add mobile resize listener
-window.addEventListener('resize', debounce(handleMobileResize, 250));
-
-// Debounce function
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
-// Setup auto-save functionality
-function setupAutoSave() {
-    const autoSave = function() {
-        if (currentSong && currentSong.notes && currentSong.notes.length > 0) {
-            try {
-                // Save to local storage only for auto-save
-                saveToLocalStorage();
-                
-                // Show auto-save notification
-                const autoSaveNotif = document.createElement('div');
-                autoSaveNotif.textContent = "Đã tự động lưu";
-                autoSaveNotif.style.position = 'fixed';
-                autoSaveNotif.style.bottom = '10px';
-                autoSaveNotif.style.right = '10px';
-                autoSaveNotif.style.background = 'rgba(46, 213, 115, 0.7)';
-                autoSaveNotif.style.color = 'white';
-                autoSaveNotif.style.padding = '5px 10px';
-                autoSaveNotif.style.borderRadius = '3px';
-                autoSaveNotif.style.fontSize = '12px';
-                autoSaveNotif.style.opacity = '0.9';
-                autoSaveNotif.style.zIndex = '1000';
-                
-                document.body.appendChild(autoSaveNotif);
-                
-                // Fade out after 2 seconds
-                setTimeout(() => {
-                    autoSaveNotif.style.opacity = '0';
-                    autoSaveNotif.style.transition = 'opacity 0.5s';
-                    
-                    setTimeout(() => {
-                        if (autoSaveNotif.parentNode) {
-                            document.body.removeChild(autoSaveNotif);
-                        }
-                    }, 500);
-                }, 2000);
-                
-                console.log("Auto-saved current song");
-            } catch (error) {
-                console.error("Auto-save failed:", error);
-            }
-        }
-        
-        // Schedule next auto-save
-        setTimeout(autoSave, 30000); // Auto-save every 30 seconds
-    };
-    
-    // Start auto-save timer
-    setTimeout(autoSave, 30000); // First auto-save after 30 seconds
-    console.log("Auto-save enabled (every 30 seconds)");
-}
-
-// Initialize song manager (Enhanced version)
-export function initSongManager() {
-    console.log("🎵 Initializing Song Manager...");
-    
-    try {
-        // Cache DOM elements first
-        cacheDOMElements();
-        
-        // Setup basic events
-        setupSongManagerEvents();
-        
-        // Setup grid and piano
-        setupGridAndPiano();
-        
-        // Setup save mode events
-        setupSaveModeEvents();
-        
-        // Setup mobile-specific features
-        const isMobile = window.innerWidth <= 900;
-        if (isMobile) {
-            console.log("📱 Setting up mobile Song Manager features");
-            setupSongListToggle();
-            setupMobileGridAndPiano();
-        }
-        
-        // Update song list
-        updateSongList();
-        
-        // Setup auto-save
-        setupAutoSave();
-        
-        console.log("✅ Song Manager initialized successfully");
-        
-    } catch (error) {
-        console.error("❌ Error initializing Song Manager:", error);
-        showErrorMessage("Không thể khởi tạo Song Manager: " + error.message);
-    }
-}
-
-// Export song
-function exportSong() {
-    if (!currentSong || !currentSong.name) {
-        showErrorMessage('Không có bài hát để xuất');
-        return;
     }
     
-    const dataStr = JSON.stringify(currentSong, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(dataBlob);
-    link.download = `${currentSong.name}.json`;
-    link.click();
-    
-    showNotification(`Đã xuất bài hát: ${currentSong.name}`, 'success');
+    console.log("✅ Song Manager UI initialized");
 }
 
 // Import song
@@ -1731,34 +1305,120 @@ function importSong() {
         if (!file) return;
         
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function(event) {
             try {
-                const songData = JSON.parse(e.target.result);
+                const songData = JSON.parse(event.target.result);
                 
                 // Validate song data
-                if (!songData.name || !songData.notes) {
-                    throw new Error('Invalid song format');
+                if (!songData.name || !Array.isArray(songData.notes)) {
+                    throw new Error('Invalid song file format');
                 }
                 
-                // Generate new ID and set as current song
-                songData.id = 'temp_' + generateId();
+                // Generate new ID to avoid conflicts
+                songData.id = generateId();
                 songData.importedAt = new Date().toISOString();
                 
-                currentSong = songData;
-                loadSongIntoEditor(currentSong);
+                // Add to songs list
+                const songs = getSongs();
+                songs.push(songData);
+                setSongs(songs);
+                saveSongsToLocalStorage();
                 
-                showNotification(`Đã nhập bài hát: ${songData.name}`, 'success');
+                // Load into editor
+                loadSongIntoEditor(songData);
+                loadAndDisplaySongs();
+                
+                showNotification(`Imported: ${songData.name}`, 'success');
+                
             } catch (error) {
-                console.error('Error importing song:', error);
-                showErrorMessage('Lỗi khi nhập bài hát. Vui lòng kiểm tra định dạng file.');
+                console.error('Import error:', error);
+                showErrorMessage('Failed to import song: ' + error.message);
             }
         };
+        
         reader.readAsText(file);
     };
     
     input.click();
 }
 
-// Functions removed - back to original Song Manager
+// Export song
+function exportSong() {
+    if (!currentSong) {
+        showNotification('No song to export', 'warning');
+        return;
+    }
+    
+    // Update current song data before export
+    const songNameInput = document.getElementById('song-name');
+    const songBpmInput = document.getElementById('song-bpm');
+    const rollLengthInput = document.getElementById('roll-length');
+    
+    if (songNameInput) currentSong.name = songNameInput.value || 'Untitled Song';
+    if (songBpmInput) currentSong.bpm = parseInt(songBpmInput.value) || 120;
+    if (rollLengthInput) currentSong.rollLength = parseInt(rollLengthInput.value) || 32;
+    
+    // Collect current notes from grid
+    const noteElements = document.querySelectorAll('.grid-note');
+    currentSong.notes = [];
+    
+    noteElements.forEach(noteElement => {
+        const note = noteElement.getAttribute('data-note');
+        const position = parseFloat(noteElement.getAttribute('data-position'));
+        const duration = parseFloat(noteElement.getAttribute('data-duration'));
+        
+        if (note && !isNaN(position) && !isNaN(duration)) {
+            currentSong.notes.push({
+                note,
+                key: note,
+                time: position,
+                position,
+                duration
+            });
+        }
+    });
+    
+    // Add export metadata
+    const exportData = {
+        ...currentSong,
+        exportedAt: new Date().toISOString(),
+        exportedBy: 'Pink Poong Piano'
+    };
+    
+    // Create and download file
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    link.download = `${currentSong.name || 'song'}.json`;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showNotification(`Exported: ${currentSong.name}`, 'success');
+}
 
+// Setup zoom controls
+function setupZoomControls() {
+    // Zoom controls are handled in setupMiniToolbar
+    console.log("Zoom controls setup completed");
+}
+
+// Add global exports for external access
+if (typeof window !== 'undefined') {
+    window.songManager = {
+        initSongManager,
+        loadSongIntoEditor,
+        createNewSong,
+        saveSong,
+        playGameWithSong,
+        updateSongList
+    };
+}
+
+console.log("Song Manager module loaded successfully");
+
+ 
  

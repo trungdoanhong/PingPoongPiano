@@ -70,9 +70,10 @@
     
     /* Specific mobile enhancements */
     .mobile-device #game-board {
-        height: calc(100vh - 80px);
+        height: calc(100vh - 70px);
         width: 100%;
         position: relative;
+        margin-top: 0;
     }
     
     .mobile-device .column {
@@ -81,6 +82,7 @@
         cursor: pointer;
         -webkit-user-select: none;
         user-select: none;
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
     }
     
     /* Enhanced touch feedback */
@@ -141,7 +143,7 @@
     opacity: 1 !important;
 }
 
-/* Mobile landscape optimizations */
+/* Mobile landscape optimizations - ENHANCED FOR PHONE */
 @media (max-width: 900px) and (orientation: landscape) {
     body {
         height: 100vh;
@@ -157,17 +159,22 @@
         overflow: hidden;
     }
     
-    /* IMPROVED CONTROL PANEL LAYOUT */
+    /* OPTIMIZED CONTROL PANEL LAYOUT FOR PHONE LANDSCAPE */
     .control-panel {
-        top: 5px;
-        left: 5px;
-        right: 5px;
+        position: fixed;
+        top: 3px;
+        left: 3px;
+        right: 3px;
         padding: 0;
         flex-direction: column;
         align-items: stretch;
-        gap: 8px;
-        max-height: 25vh;
+        gap: 5px;
+        max-height: 22vh;
         overflow: hidden;
+        z-index: 1001;
+        background: rgba(26, 26, 46, 0.85);
+        border-radius: 8px;
+        backdrop-filter: blur(10px);
     }
     
     /* Top row - Primary controls */
@@ -176,23 +183,25 @@
         align-items: center;
         justify-content: space-between;
         width: 100%;
-        gap: 8px;
+        gap: 6px;
         order: 1;
+        padding: 4px 8px;
     }
     
     /* Left side of top row */
     .primary-controls .left-group {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         flex: 1;
+        min-width: 0;
     }
     
     /* Right side of top row */
     .primary-controls .right-group {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         flex-shrink: 0;
     }
     
@@ -201,12 +210,12 @@
         display: none;
         width: 100%;
         justify-content: center;
-        gap: 12px;
+        gap: 8px;
         order: 2;
         overflow-x: auto;
         scrollbar-width: none;
         -ms-overflow-style: none;
-        padding: 0 5px;
+        padding: 4px 8px;
     }
     
     .secondary-controls::-webkit-scrollbar {
@@ -218,33 +227,35 @@
         display: flex;
     }
     
-    /* MOBILE-OPTIMIZED COMPONENT STYLES */
+    /* COMPACT MOBILE COMPONENT STYLES */
     #score-panel {
         background: rgba(26, 26, 46, 0.95);
-        padding: 6px 12px;
-        border-radius: 12px;
-        font-size: 14px;
+        padding: 4px 8px;
+        border-radius: 8px;
+        font-size: 12px;
         font-weight: 600;
         color: #48dbfb;
-        border: 2px solid rgba(72, 219, 251, 0.3);
+        border: 1px solid rgba(72, 219, 251, 0.3);
         white-space: nowrap;
         flex-shrink: 0;
+        min-width: 60px;
     }
     
     #menu-button {
         background: rgba(26, 26, 46, 0.95);
-        border: 2px solid rgba(102, 126, 234, 0.5);
+        border: 1px solid rgba(102, 126, 234, 0.5);
         color: #667eea;
-        padding: 6px 12px;
-        border-radius: 15px;
+        padding: 4px 8px;
+        border-radius: 8px;
         cursor: pointer;
         font-weight: 600;
-        font-size: 13px;
+        font-size: 11px;
         transition: all 0.3s ease;
         position: relative;
         z-index: 1002;
         white-space: nowrap;
         flex-shrink: 0;
+        min-width: 50px;
     }
     
     #menu-button:hover {
@@ -255,13 +266,13 @@
     
     #fullscreen-btn {
         background: rgba(26, 26, 46, 0.95);
-        border: 2px solid rgba(102, 126, 234, 0.3);
+        border: 1px solid rgba(102, 126, 234, 0.3);
         color: #667eea;
-        width: 32px;
-        height: 32px;
+        width: 28px;
+        height: 28px;
         border-radius: 50%;
         cursor: pointer;
-        font-size: 14px;
+        font-size: 12px;
         transition: all 0.3s ease;
         display: flex;
         align-items: center;
@@ -269,11 +280,11 @@
         flex-shrink: 0;
     }
     
-    /* MOBILE USER PANEL - COMPACT DESIGN */
+    /* ULTRA COMPACT USER PANEL */
     #user-panel {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 4px;
         flex: 1;
         min-width: 0;
         justify-content: flex-end;
@@ -281,21 +292,21 @@
     
     #user-info {
         background: rgba(26, 26, 46, 0.95);
-        padding: 4px 8px;
-        border-radius: 12px;
+        padding: 3px 6px;
+        border-radius: 8px;
         border: 1px solid rgba(255, 255, 255, 0.1);
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 4px;
         transition: all 0.3s ease;
         cursor: pointer;
-        max-width: 140px;
+        max-width: 120px;
         overflow: hidden;
     }
     
     #user-info img {
-        width: 20px;
-        height: 20px;
+        width: 16px;
+        height: 16px;
         border-radius: 50%;
         flex-shrink: 0;
     }
@@ -303,67 +314,34 @@
     #user-name {
         color: #48dbfb;
         font-weight: 500;
-        font-size: 11px;
+        font-size: 10px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
         min-width: 0;
-        max-width: 50px;
-    }
-    
-    /* For very long names, use first name only */
-    @media (max-width: 640px) {
-        #user-name {
-            max-width: 40px;
-            font-size: 10px;
-        }
-        
-        .user-role {
-            font-size: 7px;
-            padding: 1px 3px;
-        }
-        
-        #logout-btn {
-            font-size: 8px;
-            padding: 2px 4px;
-        }
-    }
-    
-    /* For very small screens, hide user role to save space */
-    @media (max-width: 480px) {
-        .user-role {
-            display: none !important;
-        }
-        
-        #user-name {
-            max-width: 50px;
-        }
-        
-        #user-info {
-            max-width: 100px;
-        }
+        max-width: 40px;
     }
     
     .user-role {
         background: rgba(102, 126, 234, 0.9);
         color: white;
-        padding: 1px 4px;
-        border-radius: 6px;
-        font-size: 8px;
+        padding: 1px 3px;
+        border-radius: 4px;
+        font-size: 7px;
         font-weight: 600;
         text-transform: uppercase;
         flex-shrink: 0;
-        line-height: 1.2;
+        line-height: 1;
     }
     
     #logout-btn {
         background: rgba(231, 76, 60, 0.8);
         border: none;
         color: white;
-        padding: 2px 6px;
-        border-radius: 6px;
+        padding: 2px 4px;
+        border-radius: 4px;
         cursor: pointer;
-        font-size: 9px;
+        font-size: 8px;
         font-weight: 500;
         transition: all 0.2s ease;
         flex-shrink: 0;
@@ -377,10 +355,10 @@
         background: linear-gradient(145deg, #667eea 0%, #764ba2 100%);
         border: none;
         color: white;
-        padding: 6px 12px;
-        border-radius: 12px;
+        padding: 4px 8px;
+        border-radius: 8px;
         cursor: pointer;
-        font-size: 12px;
+        font-size: 10px;
         font-weight: 500;
         transition: all 0.3s ease;
         white-space: nowrap;
@@ -391,21 +369,21 @@
         box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
     }
     
-    /* SECONDARY CONTROLS - COMPACT STYLE */
+    /* COMPACT SECONDARY CONTROLS */
     #speed-control, #margin-control {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 4px;
         background: rgba(26, 26, 46, 0.9);
-        padding: 4px 8px;
-        border-radius: 12px;
+        padding: 3px 6px;
+        border-radius: 8px;
         border: 1px solid rgba(255, 255, 255, 0.1);
         flex-shrink: 0;
     }
     
     #speed-control span, #margin-control span {
         color: #fff;
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 500;
         white-space: nowrap;
     }
@@ -414,12 +392,12 @@
         background: rgba(102, 126, 234, 0.8);
         border: none;
         color: white;
-        width: 24px;
-        height: 24px;
+        width: 20px;
+        height: 20px;
         text-align: center;
         cursor: pointer;
         border-radius: 50%;
-        font-size: 14px;
+        font-size: 12px;
         font-weight: bold;
         transition: all 0.2s ease;
         display: flex;
@@ -438,21 +416,21 @@
     }
     
     .control-value {
-        min-width: 30px;
+        min-width: 25px;
         text-align: center;
         font-weight: 600;
         color: #48dbfb;
-        font-size: 12px;
+        font-size: 10px;
     }
     
     #restart-game-btn {
         background: linear-gradient(145deg, #e74c3c 0%, #c0392b 100%);
         border: none;
         color: white;
-        padding: 6px 12px;
-        border-radius: 12px;
+        padding: 4px 8px;
+        border-radius: 8px;
         cursor: pointer;
-        font-size: 12px;
+        font-size: 10px;
         font-weight: 600;
         transition: all 0.3s ease;
         white-space: nowrap;
@@ -464,77 +442,91 @@
         box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
     }
     
-    /* ADJUST GAME CONTENT FOR NEW LAYOUT */
+    /* GAME CONTENT OPTIMIZED FOR MOBILE LANDSCAPE */
     #game-content {
-        margin-top: 60px;
-        height: calc(100vh - 60px);
+        margin-top: 65px;
+        height: calc(100vh - 65px);
+        width: 100%;
+    }
+    
+    /* PIANO GAME BOARD OPTIMIZATIONS */
+    #game-board {
+        height: 100%;
+        width: 100%;
+        display: flex;
+        margin: 0;
+    }
+    
+    .column {
+        flex: 1;
+        height: 100%;
+        position: relative;
+        cursor: pointer;
+        touch-action: manipulation;
+        transition: transform 0.1s ease;
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
+        overflow: hidden;
+        min-width: 20px; /* Ensure minimum column width */
+    }
+    
+    .column:last-child {
+        border-right: none;
+    }
+    
+    /* Enhanced note labels for mobile */
+    .note-label {
+        position: absolute;
+        bottom: 8px;
+        width: 100%;
+        text-align: center;
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.7);
+        font-weight: 500;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    }
+    
+    /* Falling tiles optimized for mobile */
+    .tile {
+        position: absolute;
+        width: 100%;
+        height: 20%;
+        bottom: 100%;
+        background: linear-gradient(to bottom, #0abde3 0%, #48dbfb 100%);
+        box-shadow: 0 0 10px rgba(10, 189, 227, 0.5);
+        border-radius: 3px;
+        animation: glow 1.5s infinite alternate;
+        transition: transform 0.1s;
     }
     
     /* START SCREEN AND GAME OVER ADJUSTMENTS */
     #start-screen,
     #game-over {
-        margin-top: -60px;
+        margin-top: -65px;
         height: 100vh;
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
+        padding: 20px;
     }
     
     #start-screen h1, #game-over h1 {
-        font-size: 28px;
-        margin-bottom: 15px;
+        font-size: 20px;
+        margin-bottom: 12px;
     }
     
     #start-screen p, #game-over p {
-        font-size: 14px;
-        margin-bottom: 10px;
+        font-size: 12px;
+        margin-bottom: 8px;
+        text-align: center;
+        max-width: 300px;
     }
     
     #start-screen button, #game-over button {
-        padding: 12px 24px;
-        font-size: 16px;
-        border-radius: 8px;
-    }
-    
-    /* DROPDOWN MENU MOBILE POSITIONING */
-    #dropdown-menu {
-        position: fixed !important;
-        top: 45px !important;
-        left: 10px !important;
-        right: 10px !important;
-        width: auto !important;
-        max-width: none !important;
-        background: rgba(26, 26, 46, 0.98) !important;
-        backdrop-filter: blur(15px) !important;
-        border: 2px solid rgba(102, 126, 234, 0.4) !important;
-    }
-
-    #menu-button.active #dropdown-menu {
-        display: flex !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-    }
-
-    .menu-item {
-        padding: 12px 16px;
+        padding: 8px 16px;
         font-size: 14px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        transition: all 0.2s ease;
+        border-radius: 6px;
     }
-
-    .menu-item:hover {
-        background: rgba(102, 126, 234, 0.2);
-        color: #48dbfb;
-    }
-
-    .menu-item.active {
-        background: rgba(102, 126, 234, 0.3);
-        color: #48dbfb;
-        font-weight: 600;
-    }
-
-    /* SONG MANAGER MOBILE ADJUSTMENTS - Updated in song-manager.css */
 }
 
 /* Very small mobile screens */

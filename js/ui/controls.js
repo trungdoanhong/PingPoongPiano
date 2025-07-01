@@ -354,28 +354,56 @@ export function hideGameControls() {
 // Initialize Song Manager mobile features
 function initSongManagerMobile() {
     const songListContainer = document.querySelector('.song-list-container');
-    const songListToggle = document.querySelector('.song-list-toggle');
+    const songListHeader = document.querySelector('.song-list-container h2');
     
-    if (songListContainer && window.innerWidth <= 900) {
-        // Create toggle button if not exists
-        if (!songListToggle) {
-            const toggle = document.createElement('div');
-            toggle.className = 'song-list-toggle';
-            toggle.innerHTML = '◀';
-            toggle.addEventListener('click', () => {
+    if (songListContainer && window.innerWidth <= 1024) {
+        console.log('🎹 Setting up mobile Song Manager features...');
+        console.log('📱 Current songListContainer classes:', songListContainer.className);
+        
+        // Force remove collapsed class initially
+        songListContainer.classList.remove('collapsed');
+        console.log('📱 Forced expansion of song list');
+        
+        // Make header clickable for toggle
+        if (songListHeader) {
+            songListHeader.style.cursor = 'pointer';
+            songListHeader.addEventListener('click', () => {
+                console.log('📱 Song list header clicked, toggling collapsed state');
                 songListContainer.classList.toggle('collapsed');
-                toggle.innerHTML = songListContainer.classList.contains('collapsed') ? '▶' : '◀';
+                
+                // Update the header arrow indicator
+                const isCollapsed = songListContainer.classList.contains('collapsed');
+                console.log(`📱 Song list is now ${isCollapsed ? 'collapsed' : 'expanded'}`);
+                console.log('📱 Updated classes:', songListContainer.className);
             });
-            songListContainer.appendChild(toggle);
+            
+            console.log('📱 Song list header click handler added');
         }
         
-        // Auto-collapse on mobile landscape
-        if (window.innerHeight < 500) {
+        // Only auto-collapse on very small screens
+        if (window.innerHeight < 400) {
             songListContainer.classList.add('collapsed');
-            if (songListToggle) songListToggle.innerHTML = '▶';
+            console.log('📱 Auto-collapsed song list for very small screen');
+        } else {
+            // Ensure it's expanded by default on normal mobile screens
+            songListContainer.classList.remove('collapsed');
+            console.log('📱 Song list expanded by default');
         }
         
-        console.log('Song Manager mobile features initialized');
+        // Handle window resize
+        const handleResize = () => {
+            if (window.innerWidth > 1024) {
+                songListContainer.classList.remove('collapsed');
+                console.log('📱 Auto-expanded song list for desktop');
+            } else if (window.innerHeight < 400) {
+                songListContainer.classList.add('collapsed');
+                console.log('📱 Auto-collapsed song list for very small screen');
+            }
+        };
+        
+        window.addEventListener('resize', handleResize);
+        
+        console.log('✅ Song Manager mobile features initialized');
     }
 }
 

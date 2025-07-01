@@ -95,42 +95,154 @@ export function initStorageDiagnostics() {
     }
 }
 
-// Load songs from localStorage
-export function loadSongsFromLocalStorage() {
+// Load songs from localStorage and create demo if needed
+export async function loadSongsFromLocalStorage() {
+    console.log("🎵 === LOADING SONGS FROM LOCALSTORAGE ===");
+    
     try {
         if (!isLocalStorageAvailable()) {
-            console.error("localStorage is not available");
+            console.error("❌ localStorage is not available");
             songs = [];
-            return Promise.resolve();
+            return [];
         }
 
         const savedSongs = localStorage.getItem(STORAGE_CONFIG.localStorageKeys.songs);
-        console.log("Checking localStorage for songs...");
+        console.log("🔍 Checking localStorage for songs...");
+        console.log("🔍 Storage key:", STORAGE_CONFIG.localStorageKeys.songs);
+        console.log("🔍 Raw localStorage data:", savedSongs ? savedSongs.substring(0, 100) + '...' : 'null');
         
         if (savedSongs) {
             try {
-                songs = JSON.parse(savedSongs);
+                const parsedSongs = JSON.parse(savedSongs);
                 
-                if (!Array.isArray(songs)) {
-                    console.error("Loaded data is not an array:", songs);
+                if (!Array.isArray(parsedSongs)) {
+                    console.error("❌ Loaded data is not an array:", parsedSongs);
                     songs = [];
                 } else {
-                    console.log("Loaded songs from localStorage:", songs.length, "songs");
+                    songs = parsedSongs;
+                    console.log("✅ Loaded songs from localStorage:", songs.length, "songs");
+                    console.log("✅ Songs data:", songs.map(s => ({ id: s.id, name: s.name, notes: s.notes?.length })));
                 }
             } catch (parseError) {
-                console.error("Failed to parse saved songs:", parseError);
+                console.error("❌ Failed to parse saved songs:", parseError);
                 songs = [];
             }
         } else {
-            console.log("No songs found in localStorage");
+            console.log("ℹ️ No songs found in localStorage");
             songs = [];
         }
         
-        return Promise.resolve();
-    } catch (e) {
-        console.error("Error loading songs from localStorage:", e);
+        // Create demo songs if no songs exist
+        if (songs.length === 0) {
+            console.log("🎨 Creating demo songs...");
+            
+            const demoSongs = [
+                {
+                    id: 'demo_song_1',
+                    name: 'Twinkle Twinkle Little Star',
+                    bpm: 120,
+                    rollLength: 32,
+                    notes: [
+                        // Twinkle twinkle little star
+                        { note: 'c5', position: 0, duration: 2, key: 'c5', time: 0 },
+                        { note: 'c5', position: 2, duration: 2, key: 'c5', time: 2 },
+                        { note: 'g5', position: 4, duration: 2, key: 'g5', time: 4 },
+                        { note: 'g5', position: 6, duration: 2, key: 'g5', time: 6 },
+                        { note: 'a5', position: 8, duration: 2, key: 'a5', time: 8 },
+                        { note: 'a5', position: 10, duration: 2, key: 'a5', time: 10 },
+                        { note: 'g5', position: 12, duration: 4, key: 'g5', time: 12 },
+                        
+                        // How I wonder what you are
+                        { note: 'f5', position: 16, duration: 2, key: 'f5', time: 16 },
+                        { note: 'f5', position: 18, duration: 2, key: 'f5', time: 18 },
+                        { note: 'e5', position: 20, duration: 2, key: 'e5', time: 20 },
+                        { note: 'e5', position: 22, duration: 2, key: 'e5', time: 22 },
+                        { note: 'd5', position: 24, duration: 2, key: 'd5', time: 24 },
+                        { note: 'd5', position: 26, duration: 2, key: 'd5', time: 26 },
+                        { note: 'c5', position: 28, duration: 4, key: 'c5', time: 28 },
+                    ],
+                    createdAt: new Date().toISOString(),
+                    modifiedAt: new Date().toISOString(),
+                    isDemo: true
+                },
+                {
+                    id: 'demo_song_2',
+                    name: 'Happy Birthday (Simple)',
+                    bpm: 100,
+                    rollLength: 24,
+                    notes: [
+                        // Happy birthday to you
+                        { note: 'c5', position: 0, duration: 1, key: 'c5', time: 0 },
+                        { note: 'c5', position: 1.5, duration: 1, key: 'c5', time: 1.5 },
+                        { note: 'd5', position: 3, duration: 2, key: 'd5', time: 3 },
+                        { note: 'c5', position: 5, duration: 2, key: 'c5', time: 5 },
+                        { note: 'f5', position: 7, duration: 2, key: 'f5', time: 7 },
+                        { note: 'e5', position: 9, duration: 3, key: 'e5', time: 9 },
+                        
+                        // Happy birthday to you
+                        { note: 'c5', position: 12, duration: 1, key: 'c5', time: 12 },
+                        { note: 'c5', position: 13.5, duration: 1, key: 'c5', time: 13.5 },
+                        { note: 'd5', position: 15, duration: 2, key: 'd5', time: 15 },
+                        { note: 'c5', position: 17, duration: 2, key: 'c5', time: 17 },
+                        { note: 'g5', position: 19, duration: 2, key: 'g5', time: 19 },
+                        { note: 'f5', position: 21, duration: 3, key: 'f5', time: 21 },
+                    ],
+                    createdAt: new Date().toISOString(),
+                    modifiedAt: new Date().toISOString(),
+                    isDemo: true
+                },
+                {
+                    id: 'demo_song_3',
+                    name: 'Scale Practice (C Major)',
+                    bpm: 140,
+                    rollLength: 16,
+                    notes: [
+                        // C major scale up
+                        { note: 'c5', position: 0, duration: 1, key: 'c5', time: 0 },
+                        { note: 'd5', position: 1, duration: 1, key: 'd5', time: 1 },
+                        { note: 'e5', position: 2, duration: 1, key: 'e5', time: 2 },
+                        { note: 'f5', position: 3, duration: 1, key: 'f5', time: 3 },
+                        { note: 'g5', position: 4, duration: 1, key: 'g5', time: 4 },
+                        { note: 'a5', position: 5, duration: 1, key: 'a5', time: 5 },
+                        { note: 'b5', position: 6, duration: 1, key: 'b5', time: 6 },
+                        { note: 'c6', position: 7, duration: 1, key: 'c6', time: 7 },
+                        
+                        // C major scale down
+                        { note: 'c6', position: 8, duration: 1, key: 'c6', time: 8 },
+                        { note: 'b5', position: 9, duration: 1, key: 'b5', time: 9 },
+                        { note: 'a5', position: 10, duration: 1, key: 'a5', time: 10 },
+                        { note: 'g5', position: 11, duration: 1, key: 'g5', time: 11 },
+                        { note: 'f5', position: 12, duration: 1, key: 'f5', time: 12 },
+                        { note: 'e5', position: 13, duration: 1, key: 'e5', time: 13 },
+                        { note: 'd5', position: 14, duration: 1, key: 'd5', time: 14 },
+                        { note: 'c5', position: 15, duration: 1, key: 'c5', time: 15 },
+                    ],
+                    createdAt: new Date().toISOString(),
+                    modifiedAt: new Date().toISOString(),
+                    isDemo: true
+                }
+            ];
+            
+            songs = demoSongs;
+            console.log("🎨 Demo songs array created:", songs.length);
+            console.log("🎨 Demo song names:", songs.map(s => s.name));
+            
+            try {
+                saveSongsToLocalStorage();
+                console.log("💾 Demo songs saved to localStorage");
+            } catch (saveError) {
+                console.error("❌ Failed to save demo songs:", saveError);
+            }
+        }
+        
+        console.log("🎵 === FINAL RESULT ===");
+        console.log(`✅ Returning ${songs.length} songs:`, songs.map(s => s.name));
+        return songs;
+        
+    } catch (error) {
+        console.error("❌ Error loading songs from localStorage:", error);
         songs = [];
-        return Promise.resolve();
+        return [];
     }
 }
 

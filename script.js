@@ -3429,6 +3429,29 @@ window.onload = function() {
                     // Xác định storage type và tạo indicator
                     const storageInfo = getSongStorageInfo(song);
                     
+                    // Calculate song duration
+                    const bpm = song.bpm || 120;
+                    const noteCount = song.notes ? song.notes.length : 0;
+                    const maxPosition = noteCount > 0 ? Math.max(...song.notes.map(n => n.position + n.duration)) : 0;
+                    const durationSeconds = (maxPosition * 60) / (bpm * 4); // Approximate duration
+                    const minutes = Math.floor(durationSeconds / 60);
+                    const seconds = Math.floor(durationSeconds % 60);
+                    const duration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                    
+                    // Detect key signature (simple)
+                    let keySignature = 'C';
+                    if (noteCount > 0) {
+                        const noteFreq = {};
+                        song.notes.forEach(note => {
+                            const baseName = note.note.replace(/\d+/, '').toLowerCase();
+                            noteFreq[baseName] = (noteFreq[baseName] || 0) + 1;
+                        });
+                        const mostCommon = Object.keys(noteFreq).reduce((a, b) => 
+                            noteFreq[a] > noteFreq[b] ? a : b
+                        );
+                        keySignature = mostCommon.toUpperCase();
+                    }
+                    
                     // Tạo nội dung HTML cho bài hát
                     songItem.innerHTML = `
                         <div class="song-header">
@@ -3437,14 +3460,21 @@ window.onload = function() {
                                 ${storageInfo.icon}
                             </div>
                         </div>
+                        <div class="song-meta">
+                            <div class="song-duration">${duration}</div>
+                            <div class="song-stats">
+                                <span>📝 ${noteCount} notes</span>
+                                <span>🎵 ${bpm} BPM</span>
+                                <span>🎹 Key ${keySignature}</span>
+                            </div>
+                        </div>
                         <div class="song-info">
-                            ${song.notes ? song.notes.length : 0} notes
                             <span class="storage-label">${storageInfo.label}</span>
                         </div>
                         <div class="song-actions">
-                            ${storageInfo.type !== 'server-readonly' ? '<button class="edit-song-btn">Edit</button>' : ''}
-                            <button class="play-song-btn">Play</button>
-                            ${storageInfo.type !== 'server-readonly' ? '<button class="delete-song-btn">Delete</button>' : ''}
+                            ${storageInfo.type !== 'server-readonly' ? '<button class="edit-song-btn">✏️ Edit</button>' : ''}
+                            <button class="play-song-btn">▶️ Play</button>
+                            ${storageInfo.type !== 'server-readonly' ? '<button class="delete-song-btn">🗑️ Delete</button>' : ''}
                         </div>
                     `;
                     
