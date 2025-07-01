@@ -1,0 +1,787 @@
+/* Song Manager - Song editor and piano roll */
+#song-manager {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    overflow: hidden;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.song-manager-content {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Song list container */
+.song-list-container {
+    width: 300px;
+    background: rgba(26, 26, 46, 0.9);
+    border-right: 2px solid rgba(102, 126, 234, 0.3);
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+/* Basic collapsed state for mobile */
+.song-list-container.collapsed {
+    width: 50px;
+    overflow: hidden;
+}
+
+.song-list-container h2 {
+    padding: 20px;
+    margin: 0;
+    font-size: 1.5rem;
+    color: #48dbfb;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.song-controls {
+    padding: 15px;
+    display: flex;
+    gap: 10px;
+}
+
+.song-controls button {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 14px;
+}
+
+#song-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.song-item {
+    background: rgba(30, 39, 46, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.song-item:hover {
+    background: rgba(30, 39, 46, 0.8);
+    border-color: rgba(72, 219, 251, 0.5);
+    transform: translateX(3px);
+}
+
+.song-name {
+    font-weight: 600;
+    color: #48dbfb;
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
+.song-actions {
+    display: flex;
+    gap: 5px;
+    margin-top: 8px;
+}
+
+.song-actions button {
+    padding: 4px 8px;
+    font-size: 12px;
+    margin: 0;
+}
+
+.song-actions button:hover {
+    transform: scale(1.05);
+}
+
+/* Song editor */
+.song-editor {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    overflow: hidden;
+}
+
+.song-editor h2 {
+    margin: 0 0 20px 0;
+    font-size: 1.5rem;
+    color: #48dbfb;
+}
+
+.editor-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 20px;
+    align-items: center;
+}
+
+.song-info {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+#song-name {
+    background: rgba(30, 39, 46, 0.8);
+    border: 2px solid rgba(102, 126, 234, 0.3);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 16px;
+    width: 200px;
+}
+
+.bpm-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#song-bpm {
+    background: rgba(30, 39, 46, 0.8);
+    border: 2px solid rgba(102, 126, 234, 0.3);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 8px;
+    width: 80px;
+    text-align: center;
+}
+
+.roll-length-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#roll-length {
+    background: rgba(30, 39, 46, 0.8);
+    border: 2px solid rgba(102, 126, 234, 0.3);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 8px;
+    width: 80px;
+    text-align: center;
+}
+
+.editor-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.save-status {
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.save-status.server-mode {
+    background: rgba(46, 204, 113, 0.2);
+    color: #2ecc71;
+    border: 1px solid rgba(46, 204, 113, 0.4);
+}
+
+.save-status.local-mode {
+    background: rgba(241, 196, 15, 0.2);
+    color: #f1c40f;
+    border: 1px solid rgba(241, 196, 15, 0.4);
+}
+
+/* Updated in enhanced piano roll section above */
+
+/* Piano keys */
+.piano-keys {
+    width: 80px;
+    background: rgba(26, 26, 46, 0.9);
+    border-right: 2px solid rgba(102, 126, 234, 0.3);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Note grid */
+.note-grid {
+    flex: 1;
+    position: relative;
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: linear-gradient(90deg, 
+        rgba(255, 255, 255, 0.05) 0px,
+        transparent 1px
+    );
+    background-size: 20px 100%;
+}
+
+/* Grid notes */
+.grid-note {
+    position: absolute;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    cursor: move;
+    transition: all 0.2s ease;
+    min-width: 20px;
+    height: 18px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: white;
+    font-weight: bold;
+}
+
+.grid-note:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+    z-index: 11;
+}
+
+.grid-note.dragging {
+    opacity: 0.8;
+    transform: scale(1.1);
+    z-index: 100;
+    box-shadow: 0 0 15px rgba(102, 126, 234, 0.7);
+}
+
+.grid-note.deleting {
+    animation: deleteNote 0.3s ease-out forwards;
+}
+
+.grid-note .resize-handle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 8px;
+    height: 100%;
+    cursor: e-resize;
+    background: rgba(255, 255, 255, 0.2);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.grid-note .resize-handle:hover {
+    opacity: 1;
+}
+
+/* Note controls */
+.note-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+}
+
+.note-duration {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.duration-btn {
+    background: rgba(30, 39, 46, 0.8);
+    border: 2px solid rgba(102, 126, 234, 0.3);
+    color: #48dbfb;
+    padding: 6px 12px;
+    border-radius: 15px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.duration-btn.active {
+    background: rgba(102, 126, 234, 0.8);
+    color: white;
+    border-color: rgba(102, 126, 234, 0.8);
+}
+
+.playback-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.playback-controls button {
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+/* Editor piano keys */
+.editor-key {
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.editor-key.white-key {
+    background: rgba(50, 58, 69, 0.8);
+    color: #fff;
+}
+
+.editor-key.black-key {
+    background: rgba(30, 37, 46, 0.8);
+    color: #ccc;
+}
+
+.editor-key:hover {
+    background: rgba(72, 219, 251, 0.3);
+    transform: scale(1.05);
+}
+
+/* Delete tooltip */
+.delete-tooltip {
+    position: absolute;
+    background: rgba(231, 76, 60, 0.9);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.delete-tooltip.visible {
+    opacity: 1;
+}
+
+/* Song list toggle for mobile */
+.song-list-toggle {
+    display: none;
+    position: absolute;
+    top: 50%;
+    right: -15px;
+    transform: translateY(-50%);
+    background: rgba(26, 26, 46, 0.9);
+    border: 2px solid rgba(102, 126, 234, 0.5);
+    color: #667eea;
+    width: 30px;
+    height: 60px;
+    border-radius: 0 15px 15px 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    z-index: 10;
+}
+
+.song-list-toggle:hover {
+    background: rgba(26, 26, 46, 1);
+    border-color: rgba(102, 126, 234, 0.8);
+    transform: translateY(-50%) scale(1.05);
+}
+
+/* Piano roll container */
+.piano-roll-container {
+    flex: 1;
+    display: flex;
+    border: 2px solid rgba(102, 126, 234, 0.3);
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(30, 39, 46, 0.5);
+    position: relative;
+    min-height: 400px;
+}
+
+/* Playback indicator */
+.playback-indicator {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: rgba(231, 76, 60, 0.8);
+    box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+    z-index: 50;
+    pointer-events: none;
+    animation: pulse 1s infinite ease-in-out;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+@keyframes deleteNote {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.5;
+    }
+    100% {
+        transform: scale(0);
+        opacity: 0;
+    }
+}
+
+/* Mobile Song Manager Layout */
+@media (max-width: 900px) and (orientation: landscape) {
+    body.song-manager-mode #song-manager {
+        top: 60px; /* Account for mobile control panel */
+        height: calc(100vh - 60px);
+        padding: 0;
+        overflow: hidden;
+    }
+    
+    body.song-manager-mode .song-manager-content {
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+    }
+    
+    /* Mobile Song List - Collapsible at top */
+    body.song-manager-mode .song-list-container {
+        width: 100%;
+        max-height: 200px;
+        min-height: 50px;
+        border-right: none;
+        border-bottom: 2px solid rgba(102, 126, 234, 0.3);
+        background: rgba(26, 26, 46, 0.95);
+        z-index: 10;
+        transition: all 0.3s ease;
+    }
+    
+    body.song-manager-mode .song-list-container.collapsed {
+        max-height: 50px;
+        overflow: hidden;
+    }
+    
+    body.song-manager-mode .song-list-container h2 {
+        padding: 8px 15px;
+        margin: 0;
+        font-size: 1rem;
+        color: #48dbfb;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        cursor: pointer;
+        user-select: none;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    body.song-manager-mode .song-list-container h2:after {
+        content: '▼';
+        font-size: 12px;
+        transition: transform 0.3s ease;
+    }
+    
+    body.song-manager-mode .song-list-container.collapsed h2:after {
+        transform: rotate(-90deg);
+    }
+    
+    body.song-manager-mode .song-controls {
+        padding: 8px 10px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    
+    body.song-manager-mode .song-controls button {
+        flex: 1;
+        min-width: 80px;
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+    
+    body.song-manager-mode #song-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 5px 10px;
+        max-height: 120px;
+    }
+    
+    /* Mobile Song Editor */
+    body.song-manager-mode .song-editor {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 10px;
+        overflow: hidden;
+        min-height: 0;
+    }
+    
+    body.song-manager-mode .song-editor h2 {
+        margin: 0 0 10px 0;
+        font-size: 1.1rem;
+        color: #48dbfb;
+    }
+    
+    body.song-manager-mode .editor-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 10px;
+        align-items: stretch;
+    }
+    
+    body.song-manager-mode .song-info {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+    }
+    
+    body.song-manager-mode #song-name {
+        background: rgba(30, 39, 46, 0.8);
+        border: 2px solid rgba(102, 126, 234, 0.3);
+        color: #fff;
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-size: 14px;
+        flex: 1;
+        min-width: 120px;
+    }
+    
+    body.song-manager-mode .bpm-control,
+    body.song-manager-mode .roll-length-control {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+    }
+    
+    body.song-manager-mode .bpm-control label,
+    body.song-manager-mode .roll-length-control label {
+        font-size: 12px;
+        color: #ccc;
+    }
+    
+    body.song-manager-mode #song-bpm,
+    body.song-manager-mode #roll-length {
+        background: rgba(30, 39, 46, 0.8);
+        border: 2px solid rgba(102, 126, 234, 0.3);
+        color: #fff;
+        padding: 6px 8px;
+        border-radius: 6px;
+        width: 60px;
+        text-align: center;
+        font-size: 12px;
+    }
+    
+    body.song-manager-mode .save-mode-selection {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    
+    body.song-manager-mode .save-mode-control label {
+        font-size: 12px;
+        color: #ccc;
+    }
+    
+    body.song-manager-mode .save-mode-options {
+        display: flex;
+        gap: 10px;
+    }
+    
+    body.song-manager-mode .save-mode-option {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: #ccc;
+    }
+    
+    body.song-manager-mode .editor-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    body.song-manager-mode .editor-actions button {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+    
+    body.song-manager-mode .save-status {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    /* Mobile Piano Roll Container */
+    body.song-manager-mode .piano-roll-container {
+        flex: 1;
+        display: flex;
+        border: 2px solid rgba(102, 126, 234, 0.3);
+        border-radius: 8px;
+        background: rgba(30, 39, 46, 0.3);
+        overflow: hidden;
+        min-height: 250px;
+        max-height: calc(100vh - 300px);
+    }
+    
+    body.song-manager-mode .piano-keys {
+        width: 60px;
+        background: rgba(26, 26, 46, 0.8);
+        border-right: 1px solid rgba(102, 126, 234, 0.3);
+        overflow-y: auto;
+        flex-shrink: 0;
+    }
+    
+    body.song-manager-mode .editor-key {
+        height: 18px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 9px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    body.song-manager-mode .note-grid {
+        flex: 1;
+        position: relative;
+        overflow: auto;
+        background: rgba(20, 20, 30, 0.5);
+        min-height: 250px;
+    }
+    
+    body.song-manager-mode .grid-row {
+        height: 18px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        position: relative;
+    }
+    
+    body.song-manager-mode .grid-note {
+        position: absolute;
+        background: linear-gradient(145deg, #667eea 0%, #764ba2 100%);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 3px;
+        height: 16px;
+        cursor: move;
+        transition: all 0.2s ease;
+        min-width: 15px;
+    }
+    
+    /* Mobile Note Controls */
+    body.song-manager-mode .note-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        gap: 10px;
+        flex-wrap: wrap;
+        border-top: 1px solid rgba(102, 126, 234, 0.3);
+        margin-top: 5px;
+    }
+    
+    body.song-manager-mode .note-duration {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    body.song-manager-mode .note-duration label {
+        font-size: 11px;
+        color: #ccc;
+    }
+    
+    body.song-manager-mode .duration-btn {
+        background: rgba(30, 39, 46, 0.8);
+        border: 1px solid rgba(102, 126, 234, 0.3);
+        color: #ccc;
+        padding: 4px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 10px;
+        transition: all 0.2s ease;
+    }
+    
+    body.song-manager-mode .duration-btn.active {
+        background: rgba(102, 126, 234, 0.8);
+        color: white;
+        border-color: rgba(102, 126, 234, 0.8);
+    }
+    
+    body.song-manager-mode .playback-controls {
+        display: flex;
+        gap: 6px;
+    }
+    
+    body.song-manager-mode .playback-controls button {
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+    
+    /* Song List Toggle Button */
+    body.song-manager-mode .song-list-toggle {
+        display: none; /* Hide the old toggle, use header click instead */
+    }
+}
+
+/* Very small mobile screens */
+@media (max-width: 640px) and (orientation: landscape) and (max-height: 400px) {
+    body.song-manager-mode #song-manager {
+        top: 45px;
+        height: calc(100vh - 45px);
+    }
+    
+    body.song-manager-mode .song-list-container {
+        max-height: 150px;
+        min-height: 40px;
+    }
+    
+    body.song-manager-mode .song-list-container.collapsed {
+        max-height: 40px;
+    }
+    
+    body.song-manager-mode .song-list-container h2 {
+        padding: 6px 10px;
+        font-size: 0.9rem;
+    }
+    
+    body.song-manager-mode .song-editor {
+        padding: 8px;
+    }
+    
+    body.song-manager-mode .piano-roll-container {
+        min-height: 200px;
+        max-height: calc(100vh - 250px);
+    }
+    
+    body.song-manager-mode .piano-keys {
+        width: 50px;
+    }
+    
+    body.song-manager-mode .editor-key {
+        height: 16px;
+        font-size: 8px;
+    }
+    
+    body.song-manager-mode .grid-row {
+        height: 16px;
+    }
+    
+    body.song-manager-mode .grid-note {
+        height: 14px;
+    }
+} 

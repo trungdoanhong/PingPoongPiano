@@ -1,0 +1,190 @@
+/* Game - Piano tiles game styles */
+#game-board {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    perspective: 1000px;
+}
+
+.column {
+    flex: 1;
+    height: 100%;
+    position: relative;
+    cursor: pointer;
+    touch-action: auto;
+    transition: transform 0.2s ease;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+}
+
+.column:active {
+    transform: scale(0.98);
+}
+
+.column:last-child {
+    border-right: none;
+}
+
+.column.white-key {
+    background: linear-gradient(to bottom, #323a45 0%, #272e38 100%);
+}
+
+.column.black-key {
+    background: linear-gradient(to bottom, #272e38 0%, #1e252e 100%);
+}
+
+.note-label {
+    position: absolute;
+    bottom: 10px;
+    width: 100%;
+    text-align: center;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 500;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Falling tiles */
+.tile {
+    position: absolute;
+    width: 100%;
+    height: 25%;
+    bottom: 100%;
+    background: linear-gradient(to bottom, #0abde3 0%, #48dbfb 100%);
+    box-shadow: 0 0 15px rgba(10, 189, 227, 0.5);
+    border-radius: 5px;
+    animation: glow 1.5s infinite alternate;
+    transform-style: preserve-3d;
+    transition: transform 0.1s;
+}
+
+@keyframes glow {
+    from {
+        box-shadow: 0 0 10px rgba(10, 189, 227, 0.5);
+    }
+    to {
+        box-shadow: 0 0 20px rgba(10, 189, 227, 0.8);
+    }
+}
+
+.tile-hit {
+    animation: hit 0.3s ease-out forwards;
+}
+
+@keyframes hit {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(0);
+        opacity: 0;
+    }
+}
+
+.tile-missed {
+    animation: missed 0.5s ease-out forwards;
+}
+
+@keyframes missed {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+        background: linear-gradient(to bottom, #4aefff 0%, #0abde3 100%);
+        box-shadow: 0 0 15px rgba(10, 189, 227, 0.7);
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(0);
+        opacity: 0;
+    }
+}
+
+/* Visual effects */
+.ripple {
+    position: absolute;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.4);
+    transform: scale(0);
+    animation: ripple 0.6s linear;
+    pointer-events: none;
+}
+
+@keyframes ripple {
+    to {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+.particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: #48dbfb;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.bottom-highlight {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 10%;
+    background: linear-gradient(to top, rgba(72, 219, 251, 0.3), transparent);
+    pointer-events: none;
+}
+
+.column-flash {
+    animation: column-flash 0.3s ease-out;
+}
+
+@keyframes column-flash {
+    0% {
+        background: linear-gradient(to bottom, #48dbfb 0%, #0abde3 100%);
+        box-shadow: inset 0 0 20px rgba(72, 219, 251, 0.6);
+    }
+    100% {
+        background: linear-gradient(to bottom, #323a45 0%, #272e38 100%);
+        box-shadow: none;
+    }
+}
+
+.bottom-flash {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 20%;
+    background: linear-gradient(to top, rgba(72, 219, 251, 0.8), transparent);
+    pointer-events: none;
+    opacity: 0;
+}
+
+.bottom-flash-animate {
+    animation: bottom-flash 0.4s ease-out;
+}
+
+@keyframes bottom-flash {
+    0% {
+        opacity: 0;
+        transform: scaleY(0);
+    }
+    50% {
+        opacity: 1;
+        transform: scaleY(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scaleY(0.5);
+    }
+} 

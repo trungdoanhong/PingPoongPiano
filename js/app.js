@@ -34,6 +34,16 @@ export async function initializeApp() {
         // Initialize basic DOM elements first (like original script.js)
         initializeDOMElements();
         
+        // Mobile-specific initialization
+        if (isMobileDevice()) {
+            console.log("📱 Mobile device detected, applying mobile optimizations...");
+            setupMobileOptimizations();
+        }
+        
+        // Set default mode to game IMMEDIATELY
+        console.log("🎮 Setting default mode to game...");
+        switchMode('game');
+        
         // Initialize storage diagnostics
         initStorageDiagnostics();
         
@@ -148,233 +158,156 @@ function initializeDOMElements() {
     console.log("✅ All critical DOM elements found");
 }
 
+// Setup mobile optimizations
+function setupMobileOptimizations() {
+    console.log("🔧 Setting up mobile optimizations...");
+    
+    try {
+        // Prevent bounce scrolling
+        document.body.style.overscrollBehavior = 'none';
+        document.body.style.touchAction = 'manipulation';
+        
+        // Prevent zoom on input focus
+        const viewport = document.querySelector('meta[name=viewport]');
+        if (viewport) {
+            viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+        }
+        
+        // Add mobile-specific body classes
+        document.body.classList.add('mobile-device');
+        
+        // Prevent context menu on long press
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        }, { passive: false });
+        
+        // Handle orientation changes
+        let orientationChangeTimeout;
+        window.addEventListener('orientationchange', () => {
+            clearTimeout(orientationChangeTimeout);
+            orientationChangeTimeout = setTimeout(() => {
+                console.log('📱 Orientation changed, updating layout...');
+                // Force a layout recalculation
+                window.dispatchEvent(new Event('resize'));
+            }, 500);
+        });
+        
+        // Improve touch responsiveness
+        document.addEventListener('touchstart', () => {}, { passive: true });
+        
+        // Add visual feedback for all interactive elements
+        const interactiveElements = document.querySelectorAll('button, .control-btn, .menu-item');
+        interactiveElements.forEach(element => {
+            element.style.webkitTapHighlightColor = 'transparent';
+            element.style.touchAction = 'manipulation';
+        });
+        
+        console.log("✅ Mobile optimizations applied successfully");
+        
+    } catch (error) {
+        console.error("❌ Error setting up mobile optimizations:", error);
+    }
+}
+
 // Setup critical event listeners (like original script.js)
 function setupCriticalEventListeners() {
     console.log("🔗 Setting up critical event listeners...");
     
-    // Menu button click (EXACTLY like original script.js)
-    const menuButton = document.getElementById('menu-button');
-    if (menuButton) {
-        function handleMenuClick(e) {
-            console.log("🖱️ Menu button clicked/touched!");
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // Toggle dropdown with multiple methods
-            menuButton.classList.toggle('active');
-            
-            // Also add show class to dropdown as backup
-            const dropdown = document.getElementById('dropdown-menu');
-            if (dropdown) {
-                if (menuButton.classList.contains('active')) {
-                    dropdown.classList.add('show');
-                    // Force display as fallback
-                    dropdown.style.display = 'flex';
-                    dropdown.style.visibility = 'visible';
-                    dropdown.style.opacity = '1';
-                } else {
-                    dropdown.classList.remove('show');
-                    // Remove forced styles to allow CSS to work
-                    dropdown.style.display = '';
-                    dropdown.style.visibility = '';
-                    dropdown.style.opacity = '';
-                }
-            }
-            
-            console.log("Menu active:", menuButton.classList.contains('active'));
-        }
-        
-        menuButton.addEventListener('click', handleMenuClick);
-        menuButton.addEventListener('touchstart', handleMenuClick, { passive: false });
-        menuButton.addEventListener('touchend', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }, { passive: false });
-        
-        console.log("✅ Menu button event listeners added");
-        
-        // Debug menu styling immediately
-        const dropdown = document.getElementById('dropdown-menu');
-        if (dropdown) {
-            console.log("🔍 Menu dropdown found, checking styles...");
-            console.log("Initial display:", getComputedStyle(dropdown).display);
-            console.log("Initial visibility:", getComputedStyle(dropdown).visibility);
-            
-            // Force dropdown to show for testing
-            setTimeout(() => {
-                console.log("🧪 Testing dropdown visibility...");
-                menuButton.classList.add('active');
-                console.log("Added 'active' class to menu button");
-                console.log("Dropdown display after active:", getComputedStyle(dropdown).display);
-                
-                // Force show if CSS selector doesn't work
-                if (getComputedStyle(dropdown).display === 'none') {
-                    console.log("⚠️ CSS selector not working, forcing display");
-                    dropdown.style.display = 'flex';
-                    dropdown.style.visibility = 'visible';
-                    dropdown.style.opacity = '1';
-                    dropdown.style.zIndex = '9999';
-                    dropdown.style.position = 'absolute';
-                    dropdown.style.background = 'rgba(0, 0, 0, 0.95)';
-                    dropdown.style.backdropFilter = 'blur(10px)';
-                    dropdown.style.borderRadius = '10px';
-                    dropdown.style.padding = '10px';
-                    dropdown.style.minWidth = '150px';
-                    dropdown.style.border = '1px solid rgba(255, 255, 255, 0.1)';
-                }
-                
-                // Remove active after 3 seconds for testing
-                setTimeout(() => {
-                    menuButton.classList.remove('active');
-                    dropdown.style.display = '';
-                    dropdown.style.visibility = '';
-                    dropdown.style.opacity = '';
-                    console.log("🔄 Reset dropdown for normal operation");
-                }, 3000);
-            }, 1000);
-        }
-    }
+    // NOTE: Menu controls are now handled by initMenuControls() in ui/controls.js
+    // This prevents conflicts and simplifies the code
+    console.log("✅ Menu controls delegated to ui/controls.js");
     
-    // Menu items click (EXACTLY like original script.js)
+    // Handle menu item clicks
     const menuItems = document.querySelectorAll('.menu-item');
     menuItems.forEach(item => {
-        function handleMenuItemClick(e) {
-            console.log("🎯 Menu item clicked:", item.getAttribute('data-mode'));
-            e.preventDefault();
+        item.addEventListener('click', function(e) {
             e.stopPropagation();
+            e.preventDefault();
+            
             const mode = item.getAttribute('data-mode');
-            switchMode(mode);
-            // Close dropdown after selection
-            menuButton.classList.remove('active');
+            console.log('Menu item clicked:', mode);
             
-            // Also remove show class and forced styles
-            const dropdown = document.getElementById('dropdown-menu');
-            if (dropdown) {
-                dropdown.classList.remove('show');
-                dropdown.style.display = '';
-                dropdown.style.visibility = '';
-                dropdown.style.opacity = '';
+            if (mode) {
+                switchMode(mode);
+                // Close menu after selection
+                const menuButton = document.getElementById('menu-button');
+                const dropdown = document.getElementById('dropdown-menu');
+                if (menuButton) menuButton.classList.remove('active');
+                if (dropdown) {
+                    dropdown.classList.remove('show');
+                    dropdown.style.display = 'none';
+                }
             }
-        }
-        
-        item.addEventListener('click', handleMenuItemClick);
-        item.addEventListener('touchstart', handleMenuItemClick, { passive: false });
-        item.addEventListener('touchend', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }, { passive: false });
-        
-        console.log("✅ Event listeners added to menu item:", item.getAttribute('data-mode'));
+        });
     });
-    
-    // Close menu when clicking outside (like original script.js)
-    document.addEventListener('click', function(e) {
-        if (menuButton && !menuButton.contains(e.target)) {
-            menuButton.classList.remove('active');
-            
-            // Also remove show class and forced styles
-            const dropdown = document.getElementById('dropdown-menu');
-            if (dropdown) {
-                dropdown.classList.remove('show');
-                dropdown.style.display = '';
-                dropdown.style.visibility = '';
-                dropdown.style.opacity = '';
-            }
-        }
-    });
-    
-    console.log("✅ Critical event listeners setup complete");
-    
-    // Create global debug function for menu
-    window.debugMenu = function() {
-        console.log("🔧 Manual menu debug triggered");
-        const menuBtn = document.getElementById('menu-button');
-        const dropdown = document.getElementById('dropdown-menu');
-        
-        if (menuBtn && dropdown) {
-            console.log("Elements found - forcing menu visible");
-            menuBtn.classList.add('active');
-            dropdown.classList.add('show');
-            dropdown.style.display = 'flex';
-            dropdown.style.visibility = 'visible';
-            dropdown.style.opacity = '1';
-            dropdown.style.zIndex = '9999';
-            dropdown.style.position = 'absolute';
-            dropdown.style.top = '100%';
-            dropdown.style.left = '0';
-            dropdown.style.background = 'rgba(0, 0, 0, 0.95)';
-            dropdown.style.backdropFilter = 'blur(10px)';
-            dropdown.style.borderRadius = '10px';
-            dropdown.style.padding = '10px';
-            dropdown.style.minWidth = '150px';
-            dropdown.style.border = '1px solid rgba(255, 255, 255, 0.1)';
-            console.log("Menu should now be visible!");
-        } else {
-            console.error("Menu elements not found!");
-        }
-    };
-    
-    // Add keyboard shortcut for debug
-    document.addEventListener('keydown', function(e) {
-        if (e.ctrlKey && e.altKey && e.key === 'm') {
-            window.debugMenu();
-        }
-    });
-    
-    // Add debug button for easy testing (only in development)
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        setTimeout(() => {
-            const debugBtn = document.createElement('button');
-            debugBtn.innerHTML = 'DEBUG MENU';
-            debugBtn.style.cssText = `
-                position: fixed;
-                top: 10px;
-                right: 10px;
-                z-index: 10000;
-                background: #ff4444;
-                color: white;
-                padding: 10px;
-                border: none;
-                border-radius: 5px;
-                font-size: 12px;
-                cursor: pointer;
-                font-weight: bold;
-            `;
-            debugBtn.onclick = window.debugMenu;
-            document.body.appendChild(debugBtn);
-            console.log("🔧 Debug button added to top-right corner");
-        }, 2000);
-    }
 }
 
-// Setup orientation handling
+// Enhanced mobile detection
+function isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+           window.innerWidth <= 768 || 
+           ('ontouchstart' in window);
+}
+
+// Setup orientation handling - MOBILE ENHANCED VERSION
 function setupOrientationHandling() {
     const orientationMessage = document.getElementById('orientation-message');
     const gameContainer = document.getElementById('game-container');
     
     function checkOrientation() {
         const isPortrait = window.innerHeight > window.innerWidth;
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const isMobile = isMobileDevice();
+        const isVerySmallScreen = window.innerWidth <= 480 || window.innerHeight <= 400;
         
-        if (isMobile && isPortrait) {
-            if (orientationMessage) orientationMessage.style.display = 'flex';
+        console.log('Orientation check:', {
+            width: window.innerWidth,
+            height: window.innerHeight,
+            isPortrait,
+            isMobile,
+            isVerySmallScreen,
+            userAgent: navigator.userAgent
+        });
+        
+        // Show orientation message only for mobile devices in portrait
+        if (isMobile && isPortrait && isVerySmallScreen) {
+            if (orientationMessage) {
+                orientationMessage.style.display = 'flex';
+                orientationMessage.style.zIndex = '2000';
+            }
             if (gameContainer) gameContainer.style.display = 'none';
+            console.log('Showing orientation message');
         } else {
             if (orientationMessage) orientationMessage.style.display = 'none';
             if (gameContainer) gameContainer.style.display = 'block';
+            console.log('Hiding orientation message');
+            
+            // Apply mobile landscape optimizations
+            if (isMobile && !isPortrait) {
+                document.body.classList.add('mobile-landscape');
+                console.log('Applied mobile landscape class');
+            } else {
+                document.body.classList.remove('mobile-landscape');
+            }
         }
     }
     
     // Check on load
     checkOrientation();
     
-    // Check on orientation change
+    // Check on orientation change with delay for mobile
     window.addEventListener('orientationchange', () => {
-        setTimeout(checkOrientation, 100);
+        setTimeout(checkOrientation, 300); // Increased delay for mobile
     });
     
-    // Check on resize
-    window.addEventListener('resize', checkOrientation);
+    // Check on resize with throttling
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(checkOrientation, 100);
+    });
+    
+    // Initial check after DOM is fully loaded
+    setTimeout(checkOrientation, 500);
 }
 
 // Setup window event listeners

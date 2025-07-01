@@ -32,12 +32,33 @@ body.scrollable {
     width: 100%;
     height: 100%;
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    z-index: 1000;
+    z-index: 2000;
     justify-content: center;
     align-items: center;
     text-align: center;
     padding: 20px;
+    font-size: 18px;
+    color: #fff;
+}
+
+#orientation-message h2 {
     font-size: 24px;
+    margin-bottom: 15px;
+    color: #667eea;
+    font-weight: 600;
+}
+
+#orientation-message p {
+    margin-bottom: 10px;
+    line-height: 1.4;
+    max-width: 300px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(90deg); }
 }
 
 #game-container {
@@ -180,21 +201,40 @@ body.scrollable {
     right: 0;
     display: flex;
     justify-content: space-between;
+    align-items: center;
     padding: 0 20px;
     z-index: 200;
+    min-height: 50px;
+}
+
+.primary-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex: 1;
+}
+
+.secondary-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-shrink: 0;
 }
 
 #score-panel {
-    padding: 10px 20px;
+    padding: 8px 16px;
     color: white;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    backdrop-filter: blur(5px);
 }
 
-#controls-container {
-    display: flex;
-    gap: 15px;
+/* Hide game-only controls when not in game mode */
+body:not(.game-mode) .game-only-control {
+    display: none;
 }
 
 #controls-container.analyzer-mode {
@@ -254,6 +294,8 @@ body.scrollable {
     z-index: 95;
     color: white;
     backdrop-filter: blur(10px);
+    overflow: visible;
+    box-sizing: border-box;
 }
 
 #game-over {
@@ -305,6 +347,7 @@ button {
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
+    box-sizing: border-box;
 }
 
 button:hover {
@@ -563,71 +606,551 @@ button:active:after {
 }
 
 /* Extra small screens in landscape - Ultra compact */
-@media (max-width: 480px) and (orientation: landscape) {
-    .control-panel {
-        padding: 4px 8px;
-        height: 40px;
-        min-height: 40px;
+/* Enhanced Mobile Landscape for Phone - ULTRA COMPACT VERSION */
+@media (max-width: 900px) and (orientation: landscape) {
+    /* Ensure body can scroll for song manager */
+    body {
+        overflow: auto;
+        height: auto;
+        min-height: 100vh;
+        touch-action: manipulation;
     }
     
+    #game-container {
+        height: auto;
+        min-height: 100vh;
+    }
+    
+    /* ULTRA COMPACT Control Panel */
+    .control-panel {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: rgba(26, 26, 46, 0.98);
+        backdrop-filter: blur(15px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 3px 8px;
+        height: 36px;
+        min-height: 36px;
+        z-index: 1000;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        overflow: visible;
+        box-sizing: border-box;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 11px;
+    }
+    
+    .primary-controls {
+        gap: 6px;
+        overflow: visible;
+        flex-wrap: nowrap;
+        min-width: 0;
+        flex: 1;
+        display: flex;
+        align-items: center;
+    }
+    
+    .secondary-controls {
+        gap: 4px;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        max-width: 45%;
+        display: none; /* HIDE BY DEFAULT ON MOBILE */
+        align-items: center;
+        flex-shrink: 0;
+    }
+    
+    .secondary-controls::-webkit-scrollbar {
+        display: none;
+    }
+    
+    /* Only show secondary controls in game mode when actually playing */
+    body.game-mode.playing .secondary-controls {
+        display: flex !important;
+    }
+    
+    /* FORCE HIDE in all other cases */
+    body:not(.game-mode) .secondary-controls,
+    body.game-mode:not(.playing) .secondary-controls {
+        display: none !important;
+    }
+    
+    /* Ultra compact primary elements */
     #score-panel {
-        font-size: 12px;
-        padding: 2px 6px;
+        font-size: 11px;
+        padding: 3px 6px;
+        line-height: 1.2;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        flex-shrink: 0;
+        min-width: 60px;
     }
     
     #menu-button {
         font-size: 10px;
-        padding: 4px 6px;
-        height: 28px;
-        min-width: 60px;
+        padding: 3px 6px;
+        height: 26px;
+        min-width: 50px;
+        flex-shrink: 0;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        position: relative;
+        z-index: 1001;
+    }
+    
+    #menu-button:hover {
+        background: rgba(255, 255, 255, 0.15);
+        transform: translateY(-1px);
+    }
+    
+    #fullscreen-btn {
+        height: 26px;
+        width: 26px;
+        font-size: 12px;
+        flex-shrink: 0;
+        border-radius: 4px;
+        padding: 0;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    /* COMPACT User panel */
+    #user-panel {
+        flex-shrink: 1;
+        min-width: 0;
+        max-width: 200px;
+    }
+    
+    #user-info {
+        padding: 2px 4px;
+        height: 26px;
+        border-radius: 4px;
+        font-size: 9px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        max-width: 180px;
+        overflow: hidden;
     }
     
     #user-info img {
-        width: 24px !important;
-        height: 24px !important;
+        width: 16px !important;
+        height: 16px !important;
+        margin-right: 2px;
+        border-radius: 50%;
+        flex-shrink: 0;
     }
     
-    #user-info.collapsed {
-        width: 28px;
+    #user-name {
+        font-size: 9px;
+        max-width: 40px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex-shrink: 1;
+    }
+    
+    .user-role {
+        font-size: 8px;
+        padding: 1px 3px;
+        border-radius: 2px;
+        flex-shrink: 0;
+    }
+    
+    #logout-btn {
+        font-size: 8px;
+        padding: 2px 4px;
+        height: 18px;
+        border-radius: 3px;
+        flex-shrink: 0;
+    }
+    
+    #google-login-btn {
+        height: 26px;
+        font-size: 9px;
+        padding: 3px 6px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    /* Compact secondary controls (when visible) */
+    #speed-control, #margin-control {
+        gap: 2px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.05);
+        padding: 1px 3px;
+        border-radius: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    #speed-control span, #margin-control span {
+        font-size: 8px;
+        min-width: 25px;
+        color: rgba(255, 255, 255, 0.8);
+    }
+    
+    .control-btn {
+        width: 20px;
+        height: 20px;
+        font-size: 10px;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .control-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: scale(1.05);
+    }
+    
+    .control-value {
+        min-width: 25px;
+        font-size: 9px;
+        padding: 1px 3px;
+        height: 20px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 3px;
+        text-align: center;
+        line-height: 18px;
+    }
+    
+    #restart-game-btn {
+        height: 26px;
+        font-size: 8px;
+        padding: 3px 6px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    /* Content adjustments for ultra compact header */
+    #game-content {
+        margin-top: 40px;
+        min-height: calc(100vh - 40px);
+        padding-bottom: 10px;
+    }
+    
+    #start-screen,
+    #game-over {
+        margin-top: 40px;
+        min-height: calc(100vh - 40px);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 15px;
+    }
+    
+    #start-screen h1, #game-over h1 {
+        font-size: 18px;
+        margin-bottom: 8px;
+    }
+    
+    #start-screen p, #game-over p {
+        font-size: 11px;
+        margin-bottom: 6px;
+        text-align: center;
+        max-width: 85%;
+        line-height: 1.3;
+    }
+    
+    #start-screen button, #game-over button {
+        padding: 8px 16px;
+        font-size: 12px;
+        margin-top: 8px;
+        border-radius: 6px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        min-width: 120px;
+    }
+    
+    /* Dropdown menu ultra compact */
+    #dropdown-menu {
+        position: absolute;
+        top: calc(100% + 1px);
+        left: 0;
+        background: rgba(26, 26, 46, 0.98);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        padding: 4px;
+        min-width: 120px;
+        z-index: 1002;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        display: none;
+        flex-direction: column;
+        gap: 2px;
+    }
+    
+    #menu-button.active #dropdown-menu {
+        display: flex;
+    }
+    
+    .menu-item {
+        padding: 6px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.9);
+        border: 1px solid transparent;
+    }
+    
+    .menu-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+        transform: translateX(1px);
+    }
+    
+    .menu-item.active {
+        background: rgba(102, 126, 234, 0.2);
+        border-color: rgba(102, 126, 234, 0.5);
+        color: #fff;
+    }
+    
+    /* Other modes ultra compact */
+    #song-manager,
+    #audio-analyzer,
+    #admin-panel {
+        padding-top: 40px;
+        min-height: 100vh;
+        box-sizing: border-box;
+    }
+    
+    /* Song Manager ultra compact */
+    body.song-manager-mode .control-panel {
+        height: 32px;
+        min-height: 32px;
+        padding: 2px 6px;
+    }
+    
+    body.song-manager-mode #score-panel {
+        font-size: 9px;
+        padding: 2px 4px;
+    }
+    
+    body.song-manager-mode #menu-button {
+        height: 24px;
+        font-size: 9px;
+        padding: 2px 4px;
+    }
+    
+    body.song-manager-mode #fullscreen-btn {
+        height: 24px;
+        width: 24px;
+        font-size: 10px;
+    }
+    
+    body.song-manager-mode #song-manager {
+        padding-top: 36px;
+    }
+    
+    body.song-manager-mode .song-list-container {
+        width: 160px;
+        max-width: 160px;
+        transition: all 0.3s ease;
+    }
+    
+    body.song-manager-mode .song-list-container.collapsed {
+        width: 30px;
+        max-width: 30px;
+    }
+    
+    body.song-manager-mode .song-list-toggle {
+        display: flex;
+        position: absolute;
+        top: 8px;
+        right: -12px;
+        background: rgba(26, 26, 46, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 10;
+        font-size: 12px;
+        color: #fff;
+    }
+}
+
+/* Extra small landscape phones */
+@media (max-width: 640px) and (orientation: landscape) and (max-height: 400px) {
+    .control-panel {
+        height: 38px;
+        min-height: 38px;
+        padding: 3px 6px;
+    }
+    
+    #score-panel {
+        font-size: 12px;
+        padding: 4px 8px;
+    }
+    
+    #menu-button {
         height: 28px;
+        font-size: 10px;
+        padding: 4px 8px;
+        min-width: 60px;
+    }
+    
+    #user-info {
+        height: 28px;
+        padding: 3px 6px;
+    }
+    
+    #user-info img {
+        width: 20px !important;
+        height: 20px !important;
     }
     
     #google-login-btn {
         height: 28px;
         font-size: 10px;
-        padding: 2px 6px;
+        padding: 4px 8px;
     }
     
-    #restart-game-btn {
-        height: 28px;
+    .control-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 11px;
+    }
+    
+    .control-value {
+        height: 24px;
+        min-width: 30px;
         font-size: 10px;
-    }
-    
-    #restart-control {
-        width: 60px;
     }
     
     #fullscreen-btn {
         height: 28px;
+        width: 28px;
         font-size: 12px;
-        min-width: 32px;
-        padding: 2px 6px;
-    }
-    
-    /* Adjust panel padding for smaller control panel */
-    #song-manager,
-    #audio-analyzer,
-    #admin-panel {
-        padding-top: 44px !important;
     }
     
     #game-content {
-        margin-top: 40px;
+        margin-top: 42px;
     }
     
-    #start-screen,
-    #game-over {
-        padding-top: 40px;
+    #song-manager,
+    #audio-analyzer,
+    #admin-panel {
+        padding-top: 45px !important;
+    }
+    
+    #dropdown-menu {
+        top: 38px;
+        width: 160px;
+    }
+    
+    /* Extra optimizations for song manager in very small landscape */
+    body.song-manager-mode .control-panel {
+        height: 32px;
+        min-height: 32px;
+        padding: 2px 4px;
+    }
+    
+    body.song-manager-mode #score-panel {
+        font-size: 10px;
+        padding: 2px 4px;
+    }
+    
+    body.song-manager-mode #menu-button {
+        height: 26px;
+        font-size: 9px;
+        padding: 2px 4px;
+    }
+    
+    body.song-manager-mode #fullscreen-btn {
+        height: 26px;
+        width: 26px;
+        font-size: 10px;
+    }
+    
+    body.song-manager-mode #song-manager {
+        padding-top: 36px !important;
+    }
+    
+    body.song-manager-mode .song-list-container {
+        width: 150px;
+        padding: 6px;
+    }
+    
+    body.song-manager-mode .song-list-container h2 {
+        font-size: 14px;
+        margin-bottom: 6px;
+    }
+    
+    body.song-manager-mode .song-editor h2 {
+        font-size: 14px;
+        margin-bottom: 6px;
+    }
+    
+    body.song-manager-mode #song-name {
+        width: 140px;
+        font-size: 12px;
+        padding: 4px 6px;
+    }
+    
+    body.song-manager-mode #song-bpm,
+    body.song-manager-mode #roll-length {
+        width: 40px;
+        font-size: 11px;
+        padding: 3px;
+    }
+    
+    body.song-manager-mode .piano-roll-container {
+        max-height: calc(100vh - 160px);
+        min-height: 200px;
+    }
+    
+    /* Optimize start screen for very small landscape */
+    #start-screen h1, #game-over h1 {
+        font-size: 16px;
+        margin-bottom: 4px;
+    }
+    
+    #start-screen p, #game-over p {
+        font-size: 10px;
+        margin-bottom: 4px;
+        padding: 0 10px;
+    }
+    
+    #start-screen button, #game-over button {
+        padding: 6px 12px;
+        font-size: 12px;
+        margin-top: 6px;
+        max-width: 85%;
+        min-width: fit-content;
+        flex-shrink: 0;
+    }
+    
+    #start-screen, #game-over {
+        height: calc(100vh - 36px);
+        padding: 8px;
+        overflow: visible;
     }
 }
 
@@ -850,7 +1373,7 @@ button:active:after {
     width: 100%;
     height: auto;
     min-height: calc(100vh - 60px);
-    padding: 20px;
+    padding: 10px 8px;
     flex-wrap: nowrap;
     touch-action: pan-y;
     overflow: hidden;
@@ -858,10 +1381,11 @@ button:active:after {
 
 .song-list-container {
     width: 25%;
+    min-width: 180px;
     background: rgba(0, 0, 0, 0.3);
-    border-radius: 10px;
-    padding: 15px;
-    margin-right: 20px;
+    border-radius: 8px;
+    padding: 10px;
+    margin-right: 10px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
     display: flex;
     flex-direction: column;
@@ -870,22 +1394,22 @@ button:active:after {
 }
 
 .song-list-container h2 {
-    margin-bottom: 15px;
-    font-size: 22px;
+    margin-bottom: 10px;
+    font-size: 18px;
     color: white;
     text-align: center;
 }
 
 .song-controls {
     display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
+    gap: 6px;
+    margin-bottom: 10px;
 }
 
 .song-controls button {
     flex: 1;
-    padding: 8px 0;
-    font-size: 14px;
+    padding: 6px 0;
+    font-size: 12px;
 }
 
 #song-list {
@@ -946,8 +1470,8 @@ button:active:after {
 .song-editor {
     flex: 1;
     background: rgba(0, 0, 0, 0.3);
-    border-radius: 10px;
-    padding: 15px;
+    border-radius: 8px;
+    padding: 10px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
     display: flex;
     flex-direction: column;
@@ -958,8 +1482,8 @@ button:active:after {
 }
 
 .song-editor h2 {
-    margin-bottom: 15px;
-    font-size: 22px;
+    margin-bottom: 10px;
+    font-size: 18px;
     color: white;
     text-align: center;
 }
@@ -967,73 +1491,75 @@ button:active:after {
 .editor-controls {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     flex-wrap: wrap;
-    gap: 15px;
+    gap: 8px;
 }
 
 .song-info {
     display: flex;
-    gap: 15px;
+    gap: 8px;
     align-items: center;
 }
 
 #song-name {
-    padding: 8px 15px;
-    border-radius: 5px;
+    padding: 6px 10px;
+    border-radius: 4px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(0, 0, 0, 0.2);
     color: white;
-    font-size: 16px;
-    width: 250px;
+    font-size: 14px;
+    width: 200px;
 }
 
 .bpm-control {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     color: white;
+    font-size: 13px;
 }
 
 #song-bpm {
-    width: 70px;
-    padding: 8px;
-    border-radius: 5px;
+    width: 55px;
+    padding: 5px;
+    border-radius: 4px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(0, 0, 0, 0.2);
     color: white;
-    font-size: 16px;
+    font-size: 13px;
     text-align: center;
 }
 
 .roll-length-control {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     color: white;
+    font-size: 13px;
 }
 
 #roll-length {
-    width: 70px;
-    padding: 8px;
-    border-radius: 5px;
+    width: 55px;
+    padding: 5px;
+    border-radius: 4px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(0, 0, 0, 0.2);
     color: white;
-    font-size: 16px;
+    font-size: 13px;
     text-align: center;
 }
 
 .editor-actions {
     display: flex;
-    gap: 10px;
+    gap: 6px;
     align-items: center;
 }
 
 .save-status {
-    font-size: 12px;
-    padding: 4px 12px;
-    border-radius: 12px;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 10px;
     background: rgba(0, 0, 0, 0.2);
     color: rgba(255, 255, 255, 0.7);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1380,10 +1906,10 @@ button:active:after {
     }
 }
 
-/* Mobile Landscape - Balanced and efficient layout */
+/* Mobile Landscape - Optimized Song Manager Layout */
 @media (max-width: 1024px) and (orientation: landscape) {
     #song-manager {
-        padding-top: 55px; /* Smaller top padding */
+        padding-top: 45px;
     }
     
     .song-manager-content {
@@ -2362,36 +2888,36 @@ button:active:after {
 .save-mode-selection {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 4px;
     align-items: center;
 }
 
 .save-mode-control {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
     align-items: center;
 }
 
 .save-mode-control label {
     color: white;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 500;
 }
 
 .save-mode-options {
     display: flex;
-    gap: 15px;
+    gap: 8px;
     align-items: center;
 }
 
 .save-mode-option {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 3px;
     cursor: pointer;
     color: white;
-    font-size: 14px;
+    font-size: 11px;
     transition: all 0.2s ease;
 }
 
@@ -2903,4 +3429,118 @@ button:active:after {
     background: #666;
     cursor: not-allowed;
     opacity: 0.6;
+}
+
+/* Mobile Landscape Body Class */
+body.mobile-landscape {
+    font-size: 14px;
+}
+
+body.mobile-landscape .control-panel {
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+body.mobile-landscape #game-board .column {
+    border-right: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+body.mobile-landscape .tile {
+    border-radius: 6px;
+    box-shadow: 0 0 20px rgba(10, 189, 227, 0.6);
+}
+
+/* Fix dropdown menu z-index issues */
+#dropdown-menu {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    background: rgba(26, 26, 46, 0.98);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 8px;
+    min-width: 160px;
+    z-index: 1003;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    transform: translateY(-5px);
+    opacity: 0;
+    transition: all 0.2s ease;
+    pointer-events: none;
+}
+
+#menu-button.active #dropdown-menu,
+#dropdown-menu.show {
+    display: flex;
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Ensure proper stacking */
+.control-panel {
+    z-index: 1000;
+}
+
+#menu-button {
+    z-index: 1001;
+    position: relative;
+}
+
+#dropdown-menu {
+    z-index: 1002;
+}
+
+/* Fix secondary controls display logic */
+.secondary-controls {
+    display: flex; /* Default visible */
+    align-items: center;
+    gap: 10px;
+}
+
+/* Hide in specific modes */
+body.song-manager-mode .secondary-controls,
+body.analyzer-mode .secondary-controls,
+body.admin-mode .secondary-controls {
+    display: none;
+}
+
+/* Always show in game mode */
+body.game-mode .secondary-controls {
+    display: flex !important;
+}
+
+/* Song list toggle improvements */
+.song-list-toggle {
+    display: none; /* Hidden by default */
+    position: absolute;
+    top: 15px;
+    right: -15px;
+    background: rgba(26, 26, 46, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    font-size: 14px;
+    color: #fff;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.song-list-toggle:hover {
+    background: rgba(102, 126, 234, 0.8);
+    transform: scale(1.1);
+}
+
+/* Show toggle only on mobile landscape */
+@media (max-width: 900px) and (orientation: landscape) {
+    .song-list-toggle {
+        display: flex;
+    }
 }

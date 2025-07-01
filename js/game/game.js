@@ -1,7 +1,7 @@
 // Game Logic Module
 import { GAME_CONFIG } from '../config/constants.js';
 import { showNotification } from '../ui/notifications.js';
-import { getGameSpeed } from '../ui/controls.js';
+import { getGameSpeed, showGameControls, hideGameControls } from '../ui/controls.js';
 
 let score = 0;
 let isGameRunning = false;
@@ -29,15 +29,15 @@ export function setCurrentSong(song) {
 }
 
 // Start the game
-export function startGame() {
-    if (!selectedSongForGame || !selectedSongForGame.notes || selectedSongForGame.notes.length === 0) {
-        showNotification('Vui lòng chọn bài hát trong Song Manager trước khi chơi!', 'warning');
+export function startGame(songData) {
+    if (!songData || !songData.notes || songData.notes.length === 0) {
+        showNotification('No song data available. Please select a song from Song Manager.', 'error');
         return;
     }
     
-    console.log("Starting game with song:", selectedSongForGame.name);
+    console.log("Starting game with song:", songData.name);
     
-    score = 0;
+    currentGameSong = songData.notes.sort((a, b) => a.time - b.time);
     songPosition = 0;
     particles = [];
     gameStartTime = performance.now();
@@ -49,10 +49,16 @@ export function startGame() {
     hideStartScreen();
     hideGameOver();
     
+    // Add playing class to show secondary controls
+    document.body.classList.add('playing');
+    
+    // Show mobile game controls
+    showGameControls();
+    
     isGameRunning = true;
     gameLoop = requestAnimationFrame(update);
     
-    showNotification(`Bắt đầu chơi: ${selectedSongForGame.name}`, 'success');
+    showNotification(`Game started: ${songData.name}`, 'success');
 }
 
 // End the game
@@ -70,6 +76,9 @@ export function endGame() {
         }
     });
     activeAudio = [];
+    
+    // Remove playing class to hide secondary controls
+    document.body.classList.remove('playing');
     
     showGameOver();
     
@@ -423,4 +432,39 @@ export function initGameControls() {
     }
     
     console.log("Game controls initialized");
+}
+
+// Reset game function - UPDATED with mobile controls  
+export function resetGame() {
+    console.log("Resetting game");
+    
+    isGameRunning = false;
+    gameStartTime = 0;
+    lastSpawnTime = 0;
+    score = 0;
+    songPosition = 0;
+    particles = [];
+    currentGameSong = [];
+    selectedSongForGame = null;
+    
+    // Hide mobile game controls
+    hideGameControls();
+    
+    // Clear all tiles
+    const columns = document.querySelectorAll('.column');
+    columns.forEach(column => {
+        const tiles = column.querySelectorAll('.tile');
+        tiles.forEach(tile => tile.remove());
+    });
+    
+    // Hide game over screen
+    hideGameOver();
+    
+    // Show start screen
+    hideStartScreen();
+    
+    // Update UI
+    updateScore();
+    
+    showNotification('Game reset', 'info');
 } 

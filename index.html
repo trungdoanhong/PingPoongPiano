@@ -2,14 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=2.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="msapplication-tap-highlight" content="no">
+    <meta name="apple-touch-fullscreen" content="yes">
     <title>Pink Poong Piano</title>
     <link rel="manifest" href="data:application/manifest+json,{&quot;display&quot;:&quot;fullscreen&quot;,&quot;orientation&quot;:&quot;landscape&quot;}">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="css/main.css?v=2024">
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -19,49 +22,63 @@
 <body>
     <div id="orientation-message">
         <div>
-            <p>Please rotate your device to landscape mode to play the game</p>
-            <div style="margin-top: 20px; font-size: 40px; transform: rotate(90deg);">↻</div>
+            <h2>🔄 Xoay thiết bị</h2>
+            <p>Vui lòng xoay thiết bị sang chế độ nằm ngang để chơi game</p>
+            <p style="font-size: 14px; opacity: 0.8; margin-top: 15px;">Pink Poong Piano hoạt động tốt nhất ở chế độ landscape</p>
+            <div style="margin-top: 30px; font-size: 48px; animation: rotate 2s infinite linear;">📱</div>
         </div>
     </div>
     
     <div id="game-container">
         <div class="control-panel">
-            <div id="score-panel">Score: <span id="score">0</span></div>
+            <!-- Primary Controls (Always Visible) -->
+            <div class="primary-controls">
+                <!-- Left side of top row -->
+                <div class="left-group">
+                    <div id="score-panel">Score: <span id="score">0</span></div>
+                    <div id="menu-button">
+                        Menu ▾
+                        <div id="dropdown-menu">
+                            <div class="menu-item active" data-mode="game">Piano Game</div>
+                            <div class="menu-item" data-mode="analyzer">Audio Analyzer</div>
+                            <div class="menu-item" data-mode="song-manager">Song Manager</div>
+                            <div class="menu-item" data-mode="music-theory">Music Theory</div>
+                            <div class="menu-item admin-only" data-mode="admin" style="display: none;">Admin Panel</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right side of top row -->
+                <div class="right-group">
+                    <!-- User Authentication Panel -->
+                    <div id="user-panel">
+                        <div id="user-info" style="display: none;">
+                            <img id="user-avatar" src="" alt="User Avatar" style="width: 24px; height: 24px; border-radius: 50%; margin-right: 6px;">
+                            <span id="user-name"></span>
+                            <span id="user-role" class="user-role"></span>
+                            <button id="logout-btn">Logout</button>
+                        </div>
+                        <div id="login-panel">
+                            <button id="google-login-btn">🔑 Login</button>
+                        </div>
+                    </div>
+                    
+                    <div id="fullscreen-control">
+                        <button id="fullscreen-btn">⛶</button>
+                    </div>
+                </div>
+            </div>
             
-            <div id="controls-container">
-                <!-- User Authentication Panel -->
-                <div id="user-panel">
-                    <div id="user-info" style="display: none;">
-                        <img id="user-avatar" src="" alt="User Avatar" style="width: 32px; height: 32px; border-radius: 50%; margin-right: 8px;">
-                        <span id="user-name"></span>
-                        <span id="user-role" class="user-role"></span>
-                        <button id="logout-btn">Logout</button>
-                        <button id="force-admin-btn" style="display: none; margin-left: 5px; padding: 4px 8px; font-size: 11px; background: #ff4444; color: white; border: none; border-radius: 3px; cursor: pointer;">Force Admin</button>
-                    </div>
-                    <div id="login-panel">
-                        <button id="google-login-btn">🔑 Login with Google</button>
-                    </div>
-                </div>
-                
-                <div id="menu-button">
-                    Menu ▾
-                    <div id="dropdown-menu">
-                        <div class="menu-item active" data-mode="game">Piano Game</div>
-                        <div class="menu-item" data-mode="analyzer">Audio Analyzer</div>
-                        <div class="menu-item" data-mode="song-manager">Song Manager</div>
-                        <div class="menu-item" data-mode="music-theory">Music Theory</div>
-                        <div class="menu-item admin-only" data-mode="admin" style="display: none;">Admin Panel</div>
-                    </div>
-                </div>
-                
-                <div id="speed-control">
+            <!-- Secondary Controls (Game controls - only shown when playing) -->
+            <div class="secondary-controls">
+                <div id="speed-control" class="game-only-control">
                     <span>Speed:</span>
                     <div class="control-btn" id="speed-down">-</div>
                     <div class="control-value" id="speed-value">0.2</div>
                     <div class="control-btn" id="speed-up">+</div>
                 </div>
                 
-                <div id="margin-control">
+                <div id="margin-control" class="game-only-control">
                     <span>Margin:</span>
                     <div class="control-btn" id="margin-down">-</div>
                     <div class="control-value" id="margin-value">0%</div>
@@ -70,10 +87,6 @@
                 
                 <div id="restart-control" style="display: none;">
                     <button id="restart-game-btn">🔄 Restart</button>
-                </div>
-                
-                <div id="fullscreen-control">
-                    <button id="fullscreen-btn">⛶</button>
                 </div>
             </div>
         </div>
@@ -192,7 +205,6 @@
                         <div class="editor-actions">
                             <button id="save-song-btn">Save</button>
                             <button id="export-song-btn">Export</button>
-                            <button id="test-song-btn">Test</button>
                             <div class="save-status" id="save-status">Local Storage</div>
                         </div>
                     </div>

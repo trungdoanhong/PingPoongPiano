@@ -2,6 +2,13 @@
 import { GAME_CONFIG } from '../config/constants.js';
 import { handleColumnClick } from './game.js';
 
+// Enhanced mobile detection
+function isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+           window.innerWidth <= 768 || 
+           ('ontouchstart' in window);
+}
+
 // Create piano keys/columns
 export function createPianoKeys() {
     const gameBoard = document.getElementById('game-board');
@@ -34,38 +41,80 @@ export function createPianoKeys() {
     console.log("Piano keys created:", GAME_CONFIG.keyOrder.length, "keys");
 }
 
-// Setup event listeners for piano columns
+// Setup event listeners for piano columns - ENHANCED MOBILE VERSION
 function setupColumnEventListeners() {
     const columns = document.querySelectorAll('.column');
     
     columns.forEach(column => {
-        // Mouse events
+        // Enhanced touch handling for mobile
+        if (isMobileDevice()) {
+            console.log("Setting up mobile touch events for column:", column.dataset.key);
+            
+            // Enhanced touchstart handler
+            column.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                console.log("Touch started on column:", column.dataset.key);
+                
+                // Handle multiple touches
+                Array.from(e.touches).forEach(touch => {
+                    const rect = column.getBoundingClientRect();
+                    const event = {
+                        clientX: touch.clientX,
+                        clientY: touch.clientY,
+                        target: column,
+                        isTouchEvent: true
+                    };
+                    
+                    // Verify touch is within column bounds
+                    if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+                        touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+                        handleColumnClick(column, event);
+                    }
+                });
+            }, { passive: false });
+            
+            // Touch end handler
+            column.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, { passive: false });
+            
+            // Prevent touch move to avoid scrolling
+            column.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+            }, { passive: false });
+        }
+        
+        // Mouse events for desktop (also works as fallback)
         column.addEventListener('mousedown', (e) => {
+            if (!isMobileDevice()) {
+                e.preventDefault();
+                handleColumnClick(column, e);
+            }
+        });
+        
+        // Click handler as ultimate fallback
+        column.addEventListener('click', (e) => {
+            console.log("Click fallback triggered for column:", column.dataset.key);
             e.preventDefault();
             handleColumnClick(column, e);
         });
         
-        // Touch events for mobile
-        column.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            
-            // Handle multiple touches
-            Array.from(e.touches).forEach(touch => {
-                const event = {
-                    clientX: touch.clientX,
-                    clientY: touch.clientY
-                };
-                handleColumnClick(column, event);
-            });
-        });
-        
-        // Prevent context menu on right click
+        // Prevent context menu on right click/long press
         column.addEventListener('contextmenu', (e) => {
             e.preventDefault();
         });
+        
+        // Add visual feedback for mobile
+        if (isMobileDevice()) {
+            column.style.cursor = 'pointer';
+            column.style.webkitTapHighlightColor = 'transparent';
+        }
     });
     
-    console.log("Column event listeners setup for", columns.length, "columns");
+    console.log("Enhanced column event listeners setup for", columns.length, "columns");
 }
 
 // Reset note states (remove any active effects)

@@ -116,7 +116,11 @@ function updateUserUI(user, role) {
         if (loginPanel) loginPanel.style.display = 'none';
         
         if (userAvatar) userAvatar.src = user.photoURL || 'https://via.placeholder.com/32';
-        if (userName) userName.textContent = user.displayName || user.email;
+        if (userName) {
+            const displayName = truncateNameForMobile(user.displayName || user.email);
+            userName.textContent = displayName;
+            userName.title = user.displayName || user.email; // Show full name on hover
+        }
         if (userRole) {
             userRole.textContent = role.toUpperCase();
             userRole.className = `user-role ${role}`;
@@ -274,4 +278,54 @@ export function isAdmin() {
 
 export function canSaveToServer() {
     return currentUserRole === 'admin' || currentUserRole === 'moderator';
+}
+
+// Mobile-friendly name truncation
+function truncateNameForMobile(fullName) {
+    if (!fullName) return '';
+    
+    // Check if we're on mobile
+    const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (!isMobile) return fullName;
+    
+    // For mobile, use only first name if name is too long
+    const names = fullName.trim().split(' ');
+    const firstName = names[0];
+    
+    // If first name is still too long, truncate it
+    if (firstName.length > 8) {
+        return firstName.substring(0, 6) + '...';
+    }
+    
+    // If full name is short enough, use it
+    if (fullName.length <= 12) {
+        return fullName;
+    }
+    
+    // Otherwise, use first name only
+    return firstName;
+}
+
+// Handle responsive name updates on window resize
+function handleResponsiveNameUpdate() {
+    if (currentUser) {
+        updateUserUI(currentUser, currentUserRole);
+    }
+}
+
+// Add window resize listener for responsive name updates
+window.addEventListener('resize', debounce(handleResponsiveNameUpdate, 250));
+
+// Debounce function to limit resize event calls
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
 } 

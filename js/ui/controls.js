@@ -4,6 +4,33 @@ import { showNotification } from './notifications.js';
 let sideMargin = 0;
 let gameSpeed = 0.3;
 
+// Enhanced mobile detection
+function isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+           window.innerWidth <= 768 || 
+           ('ontouchstart' in window);
+}
+
+// Enhanced touch event handler
+function addMobileEventListeners(element, callback) {
+    if (isMobileDevice()) {
+        // Touch events
+        element.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            callback(e);
+        }, { passive: false });
+        
+        element.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        }, { passive: false });
+    }
+    
+    // Standard click for all devices
+    element.addEventListener('click', callback);
+}
+
 // Menu dropdown functionality
 export function toggleMenuDropdown() {
     const menuButton = document.getElementById('menu-button');
@@ -25,52 +52,108 @@ export function closeMenuOnClickOutside(e) {
     }
 }
 
-// Initialize menu controls
+// Initialize menu controls - MOBILE ENHANCED VERSION
 export function initMenuControls() {
     const menuButton = document.getElementById('menu-button');
-    if (menuButton) {
-        menuButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleMenuDropdown();
-        });
-    }
+    const dropdown = document.getElementById('dropdown-menu');
     
-    // Close menu when clicking outside
-    document.addEventListener('click', closeMenuOnClickOutside);
-    
-    // Handle menu item clicks
-    const menuItems = document.querySelectorAll('.menu-item');
-    menuItems.forEach(item => {
-        item.addEventListener('click', (e) => {
+    if (menuButton && dropdown) {
+        // Remove any existing event listeners
+        menuButton.replaceWith(menuButton.cloneNode(true));
+        const newMenuButton = document.getElementById('menu-button');
+        const newDropdown = document.getElementById('dropdown-menu');
+        
+        // Enhanced mobile-compatible event handler
+        const toggleMenu = (e) => {
             e.stopPropagation();
-            const mode = item.getAttribute('data-mode');
-            if (mode) {
-                switchMode(mode);
-                // Close menu after selection
-                const menuButton = document.getElementById('menu-button');
-                if (menuButton) {
-                    menuButton.classList.remove('active');
-                }
+            e.preventDefault();
+            
+            const isActive = newMenuButton.classList.contains('active');
+            console.log('Menu button triggered, currently active:', isActive);
+            
+            if (isActive) {
+                // Close menu
+                newMenuButton.classList.remove('active');
+                newDropdown.style.display = 'none';
+                console.log('Menu closed');
+            } else {
+                // Open menu
+                newMenuButton.classList.add('active');
+                newDropdown.style.display = 'flex';
+                newDropdown.style.position = 'absolute';
+                newDropdown.style.top = '100%';
+                newDropdown.style.left = '0';
+                newDropdown.style.zIndex = '1002';
+                console.log('Menu opened');
+            }
+        };
+        
+        // Add enhanced mobile event listeners
+        addMobileEventListeners(newMenuButton, toggleMenu);
+        
+        // Close menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!newMenuButton.contains(e.target) && !newDropdown.contains(e.target)) {
+                newMenuButton.classList.remove('active');
+                newDropdown.style.display = 'none';
+                console.log('Menu closed by outside click');
             }
         });
-    });
+        
+        // Add mobile-friendly touch handler for outside clicks
+        if (isMobileDevice()) {
+            document.addEventListener('touchstart', (e) => {
+                if (!newMenuButton.contains(e.target) && !newDropdown.contains(e.target)) {
+                    newMenuButton.classList.remove('active');
+                    newDropdown.style.display = 'none';
+                }
+            }, { passive: true });
+        }
+        
+        // Handle menu item clicks with enhanced mobile support
+        const menuItems = newDropdown.querySelectorAll('.menu-item');
+        menuItems.forEach(item => {
+            const itemClickHandler = (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                
+                const mode = item.getAttribute('data-mode');
+                console.log('Menu item clicked:', mode);
+                
+                if (mode) {
+                    switchMode(mode);
+                    // Close menu after selection
+                    newMenuButton.classList.remove('active');
+                    newDropdown.style.display = 'none';
+                    console.log('Menu closed after mode switch');
+                }
+            };
+            
+            // Add enhanced mobile event listeners
+            addMobileEventListeners(item, itemClickHandler);
+        });
+        
+        console.log('Menu controls initialized with enhanced mobile support');
+    } else {
+        console.error('Menu button or dropdown not found');
+    }
 }
 
-// Initialize speed controls
+// Initialize speed controls with mobile support
 export function initSpeedControls() {
     const speedDownBtn = document.getElementById('speed-down');
     const speedUpBtn = document.getElementById('speed-up');
     const speedValue = document.getElementById('speed-value');
     
     if (speedDownBtn) {
-        speedDownBtn.addEventListener('click', () => {
+        addMobileEventListeners(speedDownBtn, () => {
             gameSpeed = Math.max(0.1, gameSpeed - 0.1);
             updateSpeedDisplay();
         });
     }
     
     if (speedUpBtn) {
-        speedUpBtn.addEventListener('click', () => {
+        addMobileEventListeners(speedUpBtn, () => {
             gameSpeed = Math.min(1.0, gameSpeed + 0.1);
             updateSpeedDisplay();
         });
@@ -83,14 +166,14 @@ export function initSpeedControls() {
     }
 }
 
-// Initialize margin controls
+// Initialize margin controls with mobile support
 export function initMarginControls() {
     const marginDownBtn = document.getElementById('margin-down');
     const marginUpBtn = document.getElementById('margin-up');
     const marginValue = document.getElementById('margin-value');
     
     if (marginDownBtn) {
-        marginDownBtn.addEventListener('click', () => {
+        addMobileEventListeners(marginDownBtn, () => {
             sideMargin = Math.max(0, sideMargin - 5);
             updateMargins();
             updateMarginDisplay();
@@ -98,7 +181,7 @@ export function initMarginControls() {
     }
     
     if (marginUpBtn) {
-        marginUpBtn.addEventListener('click', () => {
+        addMobileEventListeners(marginUpBtn, () => {
             sideMargin = Math.min(30, sideMargin + 5);
             updateMargins();
             updateMarginDisplay();
@@ -121,9 +204,12 @@ function updateMargins() {
     }
 }
 
-// Switch between different modes
+// Switch between different modes - MOBILE OPTIMIZED VERSION
 export function switchMode(mode) {
     console.log("Switching to mode:", mode);
+    
+    // Remove all mode classes from body
+    document.body.classList.remove('game-mode', 'analyzer-mode', 'song-manager-mode', 'admin-mode', 'scrollable', 'playing');
     
     // Hide all mode panels
     const panels = ['game-content', 'audio-analyzer', 'song-manager', 'admin-panel'];
@@ -134,37 +220,85 @@ export function switchMode(mode) {
         }
     });
     
-    // Show selected mode panel
+    // Hide secondary controls by default on mobile
+    const secondaryControls = document.querySelector('.secondary-controls');
+    const isMobile = window.innerWidth <= 900;
+    
+    // Show selected mode panel and add appropriate body class
     let targetPanel;
     switch (mode) {
         case 'game':
             targetPanel = document.getElementById('game-content');
-            document.body.classList.remove('scrollable');
+            document.body.classList.add('game-mode');
+            
+            // Show game-specific controls but NOT secondary controls initially
+            const gameControls = document.querySelectorAll('.game-only-control');
+            gameControls.forEach(control => {
+                control.style.display = 'flex';
+            });
+            
+            // Hide secondary controls until actually playing on mobile
+            if (isMobile && secondaryControls) {
+                secondaryControls.style.display = 'none';
+            }
             break;
+            
         case 'analyzer':
             targetPanel = document.getElementById('audio-analyzer');
-            document.body.classList.add('scrollable');
+            document.body.classList.add('analyzer-mode', 'scrollable');
+            
+            // Hide secondary controls in analyzer mode
+            if (secondaryControls) {
+                secondaryControls.style.display = 'none';
+            }
+            
+            // Setup audio analyzer if needed
+            if (window.setupCanvas) {
+                setTimeout(() => window.setupCanvas(), 100);
+            }
             break;
+            
         case 'song-manager':
             targetPanel = document.getElementById('song-manager');
-            document.body.classList.add('scrollable');
+            document.body.classList.add('song-manager-mode', 'scrollable');
+            
+            // Hide secondary controls in song manager
+            if (secondaryControls) {
+                secondaryControls.style.display = 'none';
+            }
+            
+            // Initialize song manager mobile features
+            setTimeout(() => {
+                initSongManagerMobile();
+            }, 100);
             break;
+            
         case 'music-theory':
             // Music theory mode - redirect to separate page
             window.open('music-theory.html', '_blank');
             return; // Don't continue with mode switching
+            
         case 'admin':
             targetPanel = document.getElementById('admin-panel');
-            document.body.classList.add('scrollable');
+            document.body.classList.add('admin-mode', 'scrollable');
+            
+            // Hide secondary controls in admin mode
+            if (secondaryControls) {
+                secondaryControls.style.display = 'none';
+            }
+            
             // Initialize admin panel if needed
             if (window.initAdminPanel) {
-                window.initAdminPanel();
+                setTimeout(() => window.initAdminPanel(), 100);
             }
             break;
     }
     
     if (targetPanel) {
         targetPanel.style.display = 'block';
+        
+        // Force reflow to ensure proper rendering
+        targetPanel.offsetHeight;
     }
     
     // Update menu item active state
@@ -176,17 +310,7 @@ export function switchMode(mode) {
         }
     });
     
-    // Update controls container for analyzer mode
-    const controlsContainer = document.getElementById('controls-container');
-    if (controlsContainer) {
-        if (mode === 'analyzer') {
-            controlsContainer.classList.add('analyzer-mode');
-        } else {
-            controlsContainer.classList.remove('analyzer-mode');
-        }
-    }
-    
-    // Show restart control for game mode
+    // Show/hide restart control for game mode
     const restartControl = document.getElementById('restart-control');
     if (restartControl) {
         if (mode === 'game') {
@@ -196,7 +320,63 @@ export function switchMode(mode) {
         }
     }
     
+    // Trigger resize event to update layouts
+    setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+    }, 100);
+    
     showNotification(`Switched to ${mode} mode`, 'success');
+}
+
+// Function to show secondary controls when game actually starts
+export function showGameControls() {
+    const isMobile = window.innerWidth <= 900;
+    const secondaryControls = document.querySelector('.secondary-controls');
+    
+    if (isMobile && secondaryControls && document.body.classList.contains('game-mode')) {
+        document.body.classList.add('playing');
+        secondaryControls.style.display = 'flex';
+        console.log('Showing secondary controls for mobile game');
+    }
+}
+
+// Function to hide secondary controls when game stops
+export function hideGameControls() {
+    const secondaryControls = document.querySelector('.secondary-controls');
+    
+    document.body.classList.remove('playing');
+    if (window.innerWidth <= 900 && secondaryControls) {
+        secondaryControls.style.display = 'none';
+        console.log('Hiding secondary controls for mobile');
+    }
+}
+
+// Initialize Song Manager mobile features
+function initSongManagerMobile() {
+    const songListContainer = document.querySelector('.song-list-container');
+    const songListToggle = document.querySelector('.song-list-toggle');
+    
+    if (songListContainer && window.innerWidth <= 900) {
+        // Create toggle button if not exists
+        if (!songListToggle) {
+            const toggle = document.createElement('div');
+            toggle.className = 'song-list-toggle';
+            toggle.innerHTML = '◀';
+            toggle.addEventListener('click', () => {
+                songListContainer.classList.toggle('collapsed');
+                toggle.innerHTML = songListContainer.classList.contains('collapsed') ? '▶' : '◀';
+            });
+            songListContainer.appendChild(toggle);
+        }
+        
+        // Auto-collapse on mobile landscape
+        if (window.innerHeight < 500) {
+            songListContainer.classList.add('collapsed');
+            if (songListToggle) songListToggle.innerHTML = '▶';
+        }
+        
+        console.log('Song Manager mobile features initialized');
+    }
 }
 
 // Get current game speed

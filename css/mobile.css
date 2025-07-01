@@ -1,0 +1,686 @@
+/* Mobile Responsive - Responsive design for all screen sizes */
+
+/* Base mobile optimizations */
+@media screen and (max-width: 768px) {
+    * {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        touch-action: manipulation;
+    }
+    
+    body {
+        -webkit-overflow-scrolling: touch;
+        position: fixed;
+        width: 100%;
+        height: 100vh;
+        overscroll-behavior: none;
+    }
+    
+    /* Prevent zooming on inputs */
+    input, select, textarea, button {
+        font-size: 16px;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+    }
+}
+
+/* Portrait orientation - show rotation message */
+@media (orientation: portrait) and (max-width: 768px) {
+    #orientation-message {
+        display: flex;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 9999;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        text-align: center;
+        padding: 20px;
+        overflow: hidden;
+    }
+    
+    #game-container {
+        display: none !important;
+    }
+}
+
+/* Base mobile fixes for all orientations */
+@media screen and (max-width: 768px) {
+    /* Improve tap targets */
+    button, .control-btn, .menu-item, .column {
+        min-height: 44px;
+        min-width: 44px;
+        position: relative;
+    }
+    
+    /* Add visual feedback for taps */
+    button:active, .control-btn:active, .menu-item:active, .column:active {
+        transform: scale(0.95);
+        transition: transform 0.1s ease;
+    }
+    
+    /* Specific mobile enhancements */
+    .mobile-device #game-board {
+        height: calc(100vh - 80px);
+        width: 100%;
+        position: relative;
+    }
+    
+    .mobile-device .column {
+        flex: 1;
+        min-width: 0;
+        cursor: pointer;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+    
+    /* Enhanced touch feedback */
+    .mobile-device .column:active {
+        background: rgba(72, 219, 251, 0.8) !important;
+        box-shadow: 0 0 20px rgba(72, 219, 251, 0.6);
+        transform: scale(0.98);
+    }
+    
+    /* Fix menu dropdown positioning on mobile */
+    .mobile-device #dropdown-menu {
+        position: fixed !important;
+        top: 60px !important;
+        left: 10px !important;
+        right: 10px !important;
+        width: auto !important;
+        max-width: none !important;
+    }
+    
+    /* Ensure fullscreen works properly on mobile */
+    .mobile-device:-webkit-full-screen {
+        width: 100vw;
+        height: 100vh;
+    }
+    
+    .mobile-device:-moz-full-screen {
+        width: 100vw;
+        height: 100vh;
+    }
+    
+    .mobile-device:fullscreen {
+        width: 100vw;
+        height: 100vh;
+    }
+}
+
+/* Dropdown menu fixes */
+#dropdown-menu {
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    background: rgba(26, 26, 46, 0.95) !important;
+    border: 2px solid rgba(102, 126, 234, 0.3) !important;
+    border-radius: 15px !important;
+    min-width: 180px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+    backdrop-filter: blur(10px) !important;
+    overflow: hidden !important;
+    display: none !important;
+    flex-direction: column !important;
+    z-index: 9999 !important;
+}
+
+#menu-button.active #dropdown-menu,
+#dropdown-menu.show {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Mobile landscape optimizations */
+@media (max-width: 900px) and (orientation: landscape) {
+    body {
+        height: 100vh;
+        overflow: hidden;
+    }
+    
+    body.scrollable {
+        overflow: auto;
+    }
+    
+    #game-container {
+        height: 100vh;
+        overflow: hidden;
+    }
+    
+    /* IMPROVED CONTROL PANEL LAYOUT */
+    .control-panel {
+        top: 5px;
+        left: 5px;
+        right: 5px;
+        padding: 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        max-height: 25vh;
+        overflow: hidden;
+    }
+    
+    /* Top row - Primary controls */
+    .primary-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        gap: 8px;
+        order: 1;
+    }
+    
+    /* Left side of top row */
+    .primary-controls .left-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+    }
+    
+    /* Right side of top row */
+    .primary-controls .right-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+    }
+    
+    /* Bottom row - Secondary controls (only when playing) */
+    .secondary-controls {
+        display: none;
+        width: 100%;
+        justify-content: center;
+        gap: 12px;
+        order: 2;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        padding: 0 5px;
+    }
+    
+    .secondary-controls::-webkit-scrollbar {
+        display: none;
+    }
+    
+    /* Show secondary controls only when playing game */
+    body.game-mode.playing .secondary-controls {
+        display: flex;
+    }
+    
+    /* MOBILE-OPTIMIZED COMPONENT STYLES */
+    #score-panel {
+        background: rgba(26, 26, 46, 0.95);
+        padding: 6px 12px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #48dbfb;
+        border: 2px solid rgba(72, 219, 251, 0.3);
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    
+    #menu-button {
+        background: rgba(26, 26, 46, 0.95);
+        border: 2px solid rgba(102, 126, 234, 0.5);
+        color: #667eea;
+        padding: 6px 12px;
+        border-radius: 15px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 13px;
+        transition: all 0.3s ease;
+        position: relative;
+        z-index: 1002;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    
+    #menu-button:hover {
+        border-color: rgba(102, 126, 234, 0.8);
+        background: rgba(26, 26, 46, 1);
+        transform: none;
+    }
+    
+    #fullscreen-btn {
+        background: rgba(26, 26, 46, 0.95);
+        border: 2px solid rgba(102, 126, 234, 0.3);
+        color: #667eea;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    
+    /* MOBILE USER PANEL - COMPACT DESIGN */
+    #user-panel {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex: 1;
+        min-width: 0;
+        justify-content: flex-end;
+    }
+    
+    #user-info {
+        background: rgba(26, 26, 46, 0.95);
+        padding: 4px 8px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        max-width: 140px;
+        overflow: hidden;
+    }
+    
+    #user-info img {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+    
+    #user-name {
+        color: #48dbfb;
+        font-weight: 500;
+        font-size: 11px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+        max-width: 50px;
+    }
+    
+    /* For very long names, use first name only */
+    @media (max-width: 640px) {
+        #user-name {
+            max-width: 40px;
+            font-size: 10px;
+        }
+        
+        .user-role {
+            font-size: 7px;
+            padding: 1px 3px;
+        }
+        
+        #logout-btn {
+            font-size: 8px;
+            padding: 2px 4px;
+        }
+    }
+    
+    /* For very small screens, hide user role to save space */
+    @media (max-width: 480px) {
+        .user-role {
+            display: none !important;
+        }
+        
+        #user-name {
+            max-width: 50px;
+        }
+        
+        #user-info {
+            max-width: 100px;
+        }
+    }
+    
+    .user-role {
+        background: rgba(102, 126, 234, 0.9);
+        color: white;
+        padding: 1px 4px;
+        border-radius: 6px;
+        font-size: 8px;
+        font-weight: 600;
+        text-transform: uppercase;
+        flex-shrink: 0;
+        line-height: 1.2;
+    }
+    
+    #logout-btn {
+        background: rgba(231, 76, 60, 0.8);
+        border: none;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 9px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+    }
+    
+    #logout-btn:hover {
+        background: rgba(231, 76, 60, 1);
+    }
+    
+    #google-login-btn {
+        background: linear-gradient(145deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 12px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+    }
+    
+    #google-login-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+    
+    /* SECONDARY CONTROLS - COMPACT STYLE */
+    #speed-control, #margin-control {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(26, 26, 46, 0.9);
+        padding: 4px 8px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        flex-shrink: 0;
+    }
+    
+    #speed-control span, #margin-control span {
+        color: #fff;
+        font-size: 11px;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+    
+    .control-btn {
+        background: rgba(102, 126, 234, 0.8);
+        border: none;
+        color: white;
+        width: 24px;
+        height: 24px;
+        text-align: center;
+        cursor: pointer;
+        border-radius: 50%;
+        font-size: 14px;
+        font-weight: bold;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    
+    .control-btn:hover {
+        background: rgba(102, 126, 234, 1);
+        transform: scale(1.05);
+    }
+    
+    .control-btn:active {
+        transform: scale(0.9);
+    }
+    
+    .control-value {
+        min-width: 30px;
+        text-align: center;
+        font-weight: 600;
+        color: #48dbfb;
+        font-size: 12px;
+    }
+    
+    #restart-game-btn {
+        background: linear-gradient(145deg, #e74c3c 0%, #c0392b 100%);
+        border: none;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 12px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    
+    #restart-game-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+    }
+    
+    /* ADJUST GAME CONTENT FOR NEW LAYOUT */
+    #game-content {
+        margin-top: 60px;
+        height: calc(100vh - 60px);
+    }
+    
+    /* START SCREEN AND GAME OVER ADJUSTMENTS */
+    #start-screen,
+    #game-over {
+        margin-top: -60px;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    #start-screen h1, #game-over h1 {
+        font-size: 28px;
+        margin-bottom: 15px;
+    }
+    
+    #start-screen p, #game-over p {
+        font-size: 14px;
+        margin-bottom: 10px;
+    }
+    
+    #start-screen button, #game-over button {
+        padding: 12px 24px;
+        font-size: 16px;
+        border-radius: 8px;
+    }
+    
+    /* DROPDOWN MENU MOBILE POSITIONING */
+    #dropdown-menu {
+        position: fixed !important;
+        top: 45px !important;
+        left: 10px !important;
+        right: 10px !important;
+        width: auto !important;
+        max-width: none !important;
+        background: rgba(26, 26, 46, 0.98) !important;
+        backdrop-filter: blur(15px) !important;
+        border: 2px solid rgba(102, 126, 234, 0.4) !important;
+    }
+
+    #menu-button.active #dropdown-menu {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    .menu-item {
+        padding: 12px 16px;
+        font-size: 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.2s ease;
+    }
+
+    .menu-item:hover {
+        background: rgba(102, 126, 234, 0.2);
+        color: #48dbfb;
+    }
+
+    .menu-item.active {
+        background: rgba(102, 126, 234, 0.3);
+        color: #48dbfb;
+        font-weight: 600;
+    }
+
+    /* SONG MANAGER MOBILE ADJUSTMENTS - Updated in song-manager.css */
+}
+
+/* Very small mobile screens */
+@media (max-width: 640px) and (orientation: landscape) and (max-height: 400px) {
+    .control-panel {
+        top: 2px;
+        padding: 0 5px;
+    }
+    
+    #score-panel {
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+    
+    #menu-button {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+    
+    #user-info {
+        padding: 2px 6px;
+    }
+    
+    #user-info img {
+        width: 16px;
+        height: 16px;
+    }
+    
+    #google-login-btn {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+    
+    .control-btn {
+        width: 20px;
+        height: 20px;
+        font-size: 12px;
+    }
+    
+    .control-value {
+        min-width: 25px;
+        font-size: 11px;
+    }
+    
+    #fullscreen-btn {
+        width: 30px;
+        height: 30px;
+        font-size: 14px;
+    }
+    
+    #game-content {
+        padding-top: 40px;
+    }
+    
+    #audio-analyzer,
+    #admin-panel {
+        padding: 5px;
+    }
+    
+    #dropdown-menu {
+        min-width: 140px;
+    }
+    
+    #start-screen h1, #game-over h1 {
+        font-size: 1.5rem;
+        margin-bottom: 10px;
+    }
+    
+    #start-screen p, #game-over p {
+        font-size: 0.9rem;
+        margin-bottom: 15px;
+    }
+    
+    #start-screen button, #game-over button {
+        padding: 8px 16px;
+        font-size: 12px;
+    }
+    
+    #start-screen, #game-over {
+        padding: 15px;
+    }
+}
+
+/* Tablet landscape optimizations */
+@media (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
+    .control-panel {
+        padding: 0 20px;
+    }
+    
+    .primary-controls {
+        gap: 12px;
+    }
+    
+    .secondary-controls {
+        gap: 8px;
+    }
+    
+    #score-panel {
+        padding: 8px 16px;
+        font-size: 15px;
+    }
+    
+    #menu-button {
+        padding: 10px 16px;
+        font-size: 15px;
+    }
+    
+    #fullscreen-btn {
+        width: 38px;
+        height: 38px;
+        font-size: 17px;
+    }
+    
+    #user-info {
+        padding: 6px 12px;
+    }
+    
+    #user-name {
+        font-size: 13px;
+    }
+    
+    #google-login-btn {
+        padding: 8px 16px;
+        font-size: 13px;
+    }
+    
+    #speed-control, #margin-control {
+        padding: 6px 12px;
+        gap: 8px;
+    }
+    
+    .control-btn {
+        width: 26px;
+        height: 26px;
+        font-size: 15px;
+    }
+    
+    .control-value {
+        min-width: 35px;
+        font-size: 13px;
+    }
+    
+    #restart-game-btn {
+        padding: 8px 16px;
+        font-size: 13px;
+    }
+    
+    /* Song Manager handled in song-manager.css */
+} 

@@ -1,0 +1,90 @@
+/* Layout - Main containers and structure */
+#game-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    max-width: 100%;
+    overflow: hidden;
+    background-color: transparent;
+}
+
+#game-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* Hide non-active modes */
+#audio-analyzer,
+#song-manager,
+#admin-panel {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    overflow-y: auto;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+/* Show active mode */
+body.analyzer-mode #audio-analyzer,
+body.song-manager-mode #song-manager,
+body.admin-mode #admin-panel {
+    display: block;
+}
+
+body.game-mode #game-content {
+    display: block;
+}
+
+/* Start screen and game over screens */
+#start-screen, #game-over {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(26, 26, 46, 0.95);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    text-align: center;
+}
+
+#game-over {
+    background: rgba(26, 26, 46, 0.98);
+}
+
+#start-screen h1, #game-over h1 {
+    font-size: 3rem;
+    margin-bottom: 20px;
+    background: linear-gradient(45deg, #667eea, #764ba2, #48dbfb);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: title-glow 2s ease-in-out infinite alternate;
+    font-weight: 700;
+}
+
+@keyframes title-glow {
+    from {
+        filter: drop-shadow(0 0 10px rgba(102, 126, 234, 0.5));
+    }
+    to {
+        filter: drop-shadow(0 0 20px rgba(102, 126, 234, 0.8));
+    }
+}
+
+#start-screen p, #game-over p {
+    font-size: 1.2rem;
+    margin-bottom: 30px;
+    opacity: 0.9;
+    line-height: 1.5;
+} 

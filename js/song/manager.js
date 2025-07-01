@@ -25,7 +25,7 @@ let playbackInterval = null;
 let playbackPosition = 0;
 
 // DOM element references (cached for performance)
-let saveSongBtn, newSongBtn, importSongBtn, exportSongBtn, testSongBtn;
+let saveSongBtn, newSongBtn, importSongBtn, exportSongBtn;
 let playEditorBtn, stopEditorBtn, noteGrid, pianoKeysContainer;
 let durationBtns, saveModeRadios;
 
@@ -43,7 +43,6 @@ function cacheDOMElements() {
     newSongBtn = document.getElementById('new-song-btn');
     importSongBtn = document.getElementById('import-song-btn');
     exportSongBtn = document.getElementById('export-song-btn');
-    testSongBtn = document.getElementById('test-song-btn');
     playEditorBtn = document.getElementById('play-editor-btn');
     stopEditorBtn = document.getElementById('stop-editor-btn');
     noteGrid = document.querySelector('.note-grid');
@@ -53,7 +52,7 @@ function cacheDOMElements() {
     
     console.log("DOM elements cached:", {
         saveSongBtn, newSongBtn, importSongBtn, exportSongBtn, 
-        testSongBtn, playEditorBtn, stopEditorBtn, noteGrid, 
+        playEditorBtn, stopEditorBtn, noteGrid, 
         pianoKeysContainer, durationBtns: durationBtns.length,
         saveModeRadios: saveModeRadios.length
     });
@@ -1218,9 +1217,7 @@ function setupSongManagerEvents() {
         });
     }
     
-    if (testSongBtn) {
-        testSongBtn.addEventListener('click', testSong);
-    }
+
     
     if (playEditorBtn) {
         playEditorBtn.addEventListener('click', playEditorSong);
@@ -1302,7 +1299,29 @@ function setupSongManagerEvents() {
     // Setup save mode events
     setupSaveModeEvents();
     
-    console.log("Song manager events setup complete");
+    // Mobile song list toggle - IMPROVED CALL
+    setupMobileSongListToggle();
+    
+    // Listen for orientation/resize changes with improved handling
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            setupMobileSongListToggle();
+            console.log('Song Manager layout updated for resize');
+        }, 150);
+    });
+    
+    let orientationTimeout;
+    window.addEventListener('orientationchange', () => {
+        clearTimeout(orientationTimeout);
+        orientationTimeout = setTimeout(() => {
+            setupMobileSongListToggle();
+            console.log('Song Manager layout updated for orientation change');
+        }, 400);
+    });
+    
+    console.log("Song manager events setup complete with mobile support");
 }
 
 // Show enhanced delete confirmation dialog
@@ -1373,54 +1392,224 @@ function showDeleteConfirmation(songItem, songId, songName) {
     songItem.appendChild(confirmDelete);
 }
 
-// Setup mobile song list toggle functionality
-function setupMobileSongListToggle() {
-    const songListToggle = document.getElementById('song-list-toggle');
+// Setup mobile song list toggle - IMPROVED VERSION
+function setupSongListToggle() {
     const songListContainer = document.querySelector('.song-list-container');
+    const isMobileLandscape = window.innerWidth <= 900 && window.innerHeight < window.innerWidth;
     
-    if (songListToggle && songListContainer) {
-        songListToggle.addEventListener('click', function() {
+    if (!songListContainer) return;
+    
+    // Remove existing toggle if any
+    const existingToggle = songListContainer.querySelector('.song-list-toggle');
+    if (existingToggle) {
+        existingToggle.remove();
+    }
+    
+    if (isMobileLandscape) {
+        // Create new toggle button
+        const toggle = document.createElement('div');
+        toggle.className = 'song-list-toggle';
+        toggle.innerHTML = '◀';
+        toggle.title = 'Toggle song list';
+        
+        // Add click handler
+        toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            
             const isCollapsed = songListContainer.classList.contains('collapsed');
             
             if (isCollapsed) {
-                // Expand
                 songListContainer.classList.remove('collapsed');
-                songListToggle.textContent = '◀';
-                songListToggle.title = 'Collapse song list';
+                toggle.innerHTML = '◀';
+                console.log('Song list expanded');
             } else {
-                // Collapse
                 songListContainer.classList.add('collapsed');
-                songListToggle.textContent = '▶';
-                songListToggle.title = 'Expand song list';
+                toggle.innerHTML = '▶';
+                console.log('Song list collapsed');
             }
         });
         
-        // Set initial state for mobile landscape
-        const isMobileLandscape = window.innerWidth <= 1024 && window.innerHeight < window.innerWidth;
-        if (isMobileLandscape) {
-            songListToggle.style.display = 'flex';
-            songListToggle.title = 'Collapse song list';
-        } else {
-            songListToggle.style.display = 'none';
+        // Add touch support
+        toggle.addEventListener('touchstart', (e) => {
+            e.stopPropagation();
+        }, { passive: true });
+        
+        songListContainer.appendChild(toggle);
+        
+        // Auto-collapse on very small screens
+        if (window.innerHeight < 500 || window.innerWidth < 700) {
+            songListContainer.classList.add('collapsed');
+            toggle.innerHTML = '▶';
+            console.log('Auto-collapsed song list for small screen');
         }
         
-        // Listen for orientation/resize changes
-        window.addEventListener('resize', function() {
-            const isMobileLandscape = window.innerWidth <= 1024 && window.innerHeight < window.innerWidth;
-            if (isMobileLandscape) {
-                songListToggle.style.display = 'flex';
-            } else {
-                songListToggle.style.display = 'none';
-                // Auto-expand when not mobile landscape
-                songListContainer.classList.remove('collapsed');
-                songListToggle.textContent = '◀';
-            }
-        });
-        
-        console.log("Mobile song list toggle setup complete");
+        console.log('Mobile song list toggle created for landscape mode');
     } else {
-        console.warn("Song list toggle elements not found");
+        // Ensure expanded on desktop
+        songListContainer.classList.remove('collapsed');
+        console.log('Song list toggle removed for desktop mode');
     }
+}
+
+
+
+// Enhanced mobile grid setup
+function setupMobileGridAndPiano() {
+    const isMobile = window.innerWidth <= 900;
+    
+    if (isMobile) {
+        console.log("Setting up mobile grid and piano");
+        
+        // Recreate grid for mobile
+        createGridLines();
+        createEditorPianoKeys();
+        
+        // Add mobile-specific event listeners
+        setupMobileNoteGridEvents();
+    }
+}
+
+// Setup mobile-specific note grid events
+function setupMobileNoteGridEvents() {
+    const noteGrid = document.querySelector('.note-grid');
+    if (!noteGrid) return;
+    
+    // Enhanced touch handling for mobile
+    noteGrid.addEventListener('touchstart', handleMobileTouchStart, { passive: false });
+    noteGrid.addEventListener('touchmove', handleMobileTouchMove, { passive: false });
+    noteGrid.addEventListener('touchend', handleMobileTouchEnd, { passive: false });
+    
+    console.log("Mobile note grid events setup");
+}
+
+// Handle mobile touch start
+function handleMobileTouchStart(e) {
+    e.preventDefault();
+    
+    if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        const rect = e.target.getBoundingClientRect();
+        
+        // Convert touch to mouse-like event
+        const mouseEvent = {
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            target: e.target,
+            preventDefault: () => {},
+            isTouchEvent: true
+        };
+        
+        // Handle as regular click
+        if (e.target.classList.contains('grid-note')) {
+            // Handle note interaction
+            handleNoteMouseDown(mouseEvent);
+        } else {
+            // Handle grid click (add note)
+            addNoteAtPosition(mouseEvent);
+        }
+    }
+}
+
+// Handle mobile touch move
+function handleMobileTouchMove(e) {
+    e.preventDefault();
+    
+    if (isDragging && e.touches.length === 1) {
+        const touch = e.touches[0];
+        const mouseEvent = {
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            preventDefault: () => {}
+        };
+        
+        handleMouseMove(mouseEvent);
+    }
+}
+
+// Handle mobile touch end
+function handleMobileTouchEnd(e) {
+    e.preventDefault();
+    
+    if (isDragging || isResizing) {
+        const mouseEvent = {
+            preventDefault: () => {}
+        };
+        
+        handleMouseUp(mouseEvent);
+    }
+}
+
+// Handle note mouse down (for mobile compatibility)
+function handleNoteMouseDown(e) {
+    if (e.target.classList.contains('grid-note')) {
+        selectedNoteElement = e.target;
+        
+        // Check if clicking on resize handle
+        const rect = e.target.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const noteWidth = rect.width;
+        
+        if (clickX > noteWidth - 10) {
+            // Resize mode
+            isResizing = true;
+            startX = e.clientX;
+            startWidth = parseFloat(e.target.style.width);
+            e.target.style.cursor = 'e-resize';
+        } else {
+            // Drag mode
+            isDragging = true;
+            startX = e.clientX;
+            startLeft = parseFloat(e.target.style.left);
+            e.target.style.cursor = 'move';
+        }
+        
+        draggedElement = e.target;
+        e.preventDefault();
+    }
+}
+
+// Enhanced window resize handler for mobile
+function handleMobileResize() {
+    const isMobile = window.innerWidth <= 900;
+    
+    if (isMobile && document.body.classList.contains('song-manager-mode')) {
+        console.log("Mobile resize detected, updating song manager layout");
+        
+        // Re-setup mobile elements
+        setupSongListToggle();
+        setupMobileGridAndPiano();
+        
+        // Adjust layout if needed
+        setTimeout(() => {
+            const songManager = document.getElementById('song-manager');
+            if (songManager && songManager.style.display !== 'none') {
+                loadSongIntoEditor(currentSong || {
+                    id: 'temp',
+                    name: 'New Song',
+                    bpm: 120,
+                    notes: [],
+                    rollLength: 32
+                });
+            }
+        }, 100);
+    }
+}
+
+// Add mobile resize listener
+window.addEventListener('resize', debounce(handleMobileResize, 250));
+
+// Debounce function
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
 }
 
 // Setup auto-save functionality
@@ -1479,215 +1668,37 @@ export function initSongManager() {
     console.log("🎵 Initializing Song Manager...");
     
     try {
-        // Wait for DOM elements to be available
-        const songManager = document.getElementById('song-manager');
-        if (!songManager) {
-            console.warn("⚠️ Song Manager DOM not ready, will retry...");
-            setTimeout(() => {
-                try {
-                    initSongManager();
-                } catch (e) {
-                    console.error("❌ Song Manager retry failed:", e);
-                }
-            }, 500);
-            return;
+        // Cache DOM elements first
+        cacheDOMElements();
+        
+        // Setup basic events
+        setupSongManagerEvents();
+        
+        // Setup grid and piano
+        setupGridAndPiano();
+        
+        // Setup save mode events
+        setupSaveModeEvents();
+        
+        // Setup mobile-specific features
+        const isMobile = window.innerWidth <= 900;
+        if (isMobile) {
+            console.log("📱 Setting up mobile Song Manager features");
+            setupSongListToggle();
+            setupMobileGridAndPiano();
         }
         
-        // Cache DOM elements first with error handling
-        try {
-            cacheDOMElements();
-            console.log("✅ Song Manager DOM elements cached");
-        } catch (e) {
-            console.error("❌ Song Manager DOM caching failed:", e);
-        }
+        // Update song list
+        updateSongList();
         
-        // Validate critical elements
-        if (!noteGrid || !pianoKeysContainer) {
-            console.error("❌ Critical DOM elements missing!");
-            showErrorMessage("Song Manager initialization failed - missing DOM elements");
-            return;
-        }
-        
-        // Setup UI with error handling
-        try {
-            setupGridAndPiano();
-            console.log("✅ Song Manager UI setup");
-        } catch (e) {
-            console.error("❌ Song Manager UI setup failed:", e);
-        }
-        
-        // Setup event listeners with error handling
-        try {
-            setupSongManagerEvents();
-            console.log("✅ Song Manager events setup");
-        } catch (e) {
-            console.error("❌ Song Manager events setup failed:", e);
-        }
-        
-        // Initialize roll length input handler
-        try {
-            const rollLengthInput = document.getElementById('roll-length');
-            if (rollLengthInput) {
-                rollLengthInput.value = pianoRollLength;
-                rollLengthInput.addEventListener('change', function() {
-                    const newLength = parseInt(this.value);
-                    if (newLength >= 16 && newLength <= 128) {
-                        pianoRollLength = newLength;
-                        createGridLines();
-                    }
-                });
-            }
-            console.log("✅ Song Manager roll length handler setup");
-        } catch (e) {
-            console.error("❌ Song Manager roll length handler failed:", e);
-        }
-        
-        // Load and display songs with error handling
-        try {
-            updateSongList();
-            console.log("✅ Song Manager list updated");
-        } catch (e) {
-            console.error("❌ Song Manager list update failed:", e);
-        }
-        
-        // Update save button state with error handling
-        try {
-            updateSaveButtonState();
-            console.log("✅ Song Manager save button state updated");
-        } catch (e) {
-            console.error("❌ Song Manager save button update failed:", e);
-        }
-        
-        // Setup mobile song list toggle with error handling
-        try {
-            setupMobileSongListToggle();
-            console.log("✅ Song Manager mobile toggle setup");
-        } catch (e) {
-            console.error("❌ Song Manager mobile toggle setup failed:", e);
-        }
-        
-        // Setup auto-save functionality with error handling
-        try {
-            setupAutoSave();
-            console.log("✅ Song Manager auto-save setup");
-        } catch (e) {
-            console.error("❌ Song Manager auto-save setup failed:", e);
-        }
+        // Setup auto-save
+        setupAutoSave();
         
         console.log("✅ Song Manager initialized successfully");
         
-        // Create global debug function for testing notes
-        window.debugNotes = function() {
-            console.log("🔧 Manual note debug triggered");
-            const noteGrid = document.querySelector('.note-grid');
-            
-            if (noteGrid) {
-                console.log("Grid found, creating test note...");
-                
-                // Create test note data
-                const testNote = {
-                    note: 'c5',
-                    position: 4,
-                    duration: 2
-                };
-                
-                console.log("Creating test note:", testNote);
-                addNoteToGrid(testNote);
-                
-                // Count existing notes
-                const existingNotes = noteGrid.querySelectorAll('.grid-note');
-                console.log(`Total notes in grid: ${existingNotes.length}`);
-                
-                existingNotes.forEach((note, index) => {
-                    console.log(`Note ${index + 1}:`, {
-                        position: note.style.left,
-                        top: note.style.top,
-                        width: note.style.width,
-                        height: note.style.height,
-                        dataNote: note.getAttribute('data-note'),
-                        dataPosition: note.getAttribute('data-position'),
-                        dataDuration: note.getAttribute('data-duration')
-                    });
-                });
-            } else {
-                console.error("Note grid not found!");
-            }
-        };
-        
-        // Create global function to clear all notes
-        window.clearAllNotes = function() {
-            console.log("🧹 Clearing all notes");
-            const noteGrid = document.querySelector('.note-grid');
-            if (noteGrid) {
-                const notes = noteGrid.querySelectorAll('.grid-note');
-                console.log(`Removing ${notes.length} notes`);
-                notes.forEach(note => note.remove());
-                
-                // Clear current song notes too
-                if (currentSong) {
-                    currentSong.notes = [];
-                }
-                
-                console.log("✅ All notes cleared");
-            }
-        };
-        
-        // Add keyboard shortcut for debug
-        document.addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.altKey && e.key === 'n') {
-                window.debugNotes();
-            }
-        });
-        
-        // Add debug buttons for easy testing (only in development)
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            setTimeout(() => {
-                // Test Note button
-                const debugBtn = document.createElement('button');
-                debugBtn.innerHTML = 'TEST NOTE';
-                debugBtn.style.cssText = `
-                    position: fixed;
-                    top: 60px;
-                    right: 10px;
-                    z-index: 10000;
-                    background: #00ff00;
-                    color: black;
-                    border: none;
-                    padding: 8px 12px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-weight: bold;
-                    font-size: 12px;
-                `;
-                debugBtn.onclick = window.debugNotes;
-                document.body.appendChild(debugBtn);
-                
-                // Clear Notes button
-                const clearBtn = document.createElement('button');
-                clearBtn.innerHTML = 'CLEAR';
-                clearBtn.style.cssText = `
-                    position: fixed;
-                    top: 95px;
-                    right: 10px;
-                    z-index: 10000;
-                    background: #ff4444;
-                    color: white;
-                    border: none;
-                    padding: 8px 12px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-weight: bold;
-                    font-size: 12px;
-                `;
-                clearBtn.onclick = window.clearAllNotes;
-                document.body.appendChild(clearBtn);
-            }, 1000);
-        }
-        
     } catch (error) {
-        console.error("❌ Song Manager initialization failed:", error);
-        // Don't throw error - let app continue without Song Manager
-        console.log("🔄 App will continue without Song Manager features");
+        console.error("❌ Error initializing Song Manager:", error);
+        showErrorMessage("Không thể khởi tạo Song Manager: " + error.message);
     }
 }
 
@@ -1748,16 +1759,6 @@ function importSong() {
     input.click();
 }
 
-// Test song
-function testSong() {
-    if (!currentSong || !currentSong.notes || currentSong.notes.length === 0) {
-        showErrorMessage('Không có bài hát để test');
-        return;
-    }
-    
-    // Save current song state first
-    saveSong();
-    
-    // Play the song
-    playSong(currentSong.id);
-} 
+// Functions removed - back to original Song Manager
+
+ 
