@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null && 
+             request.auth.token.email in [
+               'trungdoanhong@gmail.com',
+               'jonyvanthan@gmail.com'
+             ];
+    }
+    
+    // Helper function to check if user has admin or moderator role
+    function isAdminOrModerator() {
+      return request.auth != null && 
+             (isAdmin() || 
+              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'moderator']);
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Allow read for authenticated users
+      allow read: if request.auth != null;
+      
+      // Allow create for any authenticated user (self-registration)
+      allow create: if request.auth != null && 
+                   request.auth.uid == userId;
+      
+      // Allow update for self or admin
+      allow update: if request.auth != null && 
+                   (request.auth.uid == userId || isAdminOrModerator());
+      
+      // Allow delete only for admin
+      allow delete: if isAdminOrModerator();
+    }
+    
+    // Songs collection
+    match /songs/{songId} {
+      // Allow read for all authenticated users
+      allow read: if request.auth != null;
+      
+      // Allow create/update for authenticated users (own songs)
+      allow create, update: if request.auth != null && 
+                           request.auth.uid == resource.data.createdBy;
+      
+      // Allow delete for owner or admin
+      allow delete: if request.auth != null && 
+                   (request.auth.uid == resource.data.createdBy || isAdminOrModerator());
+    }
+    
+    // Game scores collection
+    match /scores/{scoreId} {
+      // Allow read for authenticated users
+      allow read: if request.auth != null;
+      
+      // Allow create for authenticated users
+      allow create: if request.auth != null && 
+                   request.auth.uid == request.resource.data.userId;
+      
+      // Allow update/delete for owner or admin
+      allow update, delete: if request.auth != null && 
+                           (request.auth.uid == resource.data.userId || isAdminOrModerator());
+    }
+    
+    // System settings collection (admin only)
+    match /settings/{settingId} {
+      allow read, write: if isAdminOrModerator();
+    }
+    
+    // Analytics collection (admin only)
+    match /analytics/{analyticsId} {
+      allow read, write: if isAdminOrModerator();
+    }
+  }
+} 

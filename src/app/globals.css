@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  touch-action: manipulation; /* Optimize touch interactions */
+  user-select: none; /* Prevent text selection on mobile */
+  -webkit-touch-callout: none; /* Disable iOS callout */
+  -webkit-tap-highlight-color: transparent; /* Remove tap highlights */
+}
+
+/* Mobile landscape optimizations */
+@media screen and (max-height: 600px) and (orientation: landscape) {
+  html, body {
+    overflow: hidden; /* Prevent scrolling in landscape mode */
+    height: 100vh;
+    height: 100dvh; /* Use dynamic viewport height */
+  }
+  
+  /* Improve button touch targets */
+  button, [role="button"] {
+    min-height: 32px;
+    min-width: 32px;
+  }
+  
+  /* Optimize input controls for touch */
+  input[type="range"] {
+    appearance: none;
+    -webkit-appearance: none;
+    height: 24px;
+    background: transparent;
+  }
+  
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: currentColor;
+    cursor: pointer;
+  }
+  
+  input[type="range"]::-moz-range-thumb {
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: currentColor;
+    cursor: pointer;
+    border: none;
+  }
+}
+
+/* Ensure full height usage on mobile */
+#__next, [data-nextjs-scroll-focus-boundary] {
+  height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Additional mobile landscape optimizations */
+@media screen and (max-height: 600px) and (orientation: landscape) {
+  /* Better spacing for compact height */
+  .piano-game-container {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+  
+  /* Compact modals for landscape */
+  .modal-content {
+    max-height: 80vh !important;
+    padding: 1rem !important;
+  }
+  
+  /* Ensure piano keyboard fits in landscape */
+  .piano-keyboard-container {
+    transform: scale(0.85);
+    transform-origin: center;
+  }
+  
+  /* Optimize button sizes for landscape touch */
+  button, [role="button"] {
+    min-height: 28px !important;
+    min-width: 28px !important;
+    padding: 0.25rem 0.5rem !important;
+  }
+  
+  /* Compact text for better fit */
+  h1 { font-size: 1.25rem !important; }
+  h2 { font-size: 1.125rem !important; }
+  h3 { font-size: 1rem !important; }
+  
+  /* Reduce margins and padding globally */
+  .space-y-4 > * + * { margin-top: 0.5rem !important; }
+  .space-y-6 > * + * { margin-top: 1rem !important; }
+  .space-y-8 > * + * { margin-top: 1.5rem !important; }
+}
+
+/* Optimize touch targets for mobile */
+@media (hover: none) and (pointer: coarse) {
+  /* Larger touch targets */
+  button, [role="button"], input[type="range"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Better input controls */
+  input[type="range"] {
+    height: 32px;
+  }
+  
+  /* Prevent zoom on input focus */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* PWA viewport optimizations */
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
