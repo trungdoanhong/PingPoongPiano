@@ -351,9 +351,8 @@ export default function Home() {
           setMaxCombo(mc => Math.max(mc, combo + 1));
           setHitNotes(h => h + 1);
           
-          // Show hit effect (could add visual feedback here)
+          // Show hit effect
           console.log(`${hitType}! +${finalPoints} (${combo + 1}x combo)`);
-          createHitEffect(keyNumber, hitType);
           createHitEffect(keyNumber, hitType);
           
           return prev.map(tile => 
@@ -364,12 +363,7 @@ export default function Home() {
         return prev;
       });
     }
-    
-    if (!gameStarted && selectedSong) {
-      setGameStarted(true);
-      setGameTime(0);
-    }
-  }, [gameMode, gameStarted, isPaused, combo, selectedSong]);
+  }, [gameMode, gameStarted, isPaused, combo]);
 
   const createHitEffect = (keyNumber: number, hitType: string) => {
     const position = getTilePosition(keyNumber);
@@ -456,8 +450,13 @@ export default function Home() {
     // Use physical key order for proper positioning
     const physicalOrder = [1, 9, 2, 10, 3, 4, 11, 5, 12, 6, 13, 7, 14, 8, 15];
     const physicalIndex = physicalOrder.indexOf(keyNumber);
-    const baseWidth = 48; // Base key width
-    return physicalIndex * (baseWidth + 4); // 4px gap between keys
+    
+    // Responsive tile width based on screen size
+    const isSmallScreen = window.innerWidth < 640;
+    const baseWidth = isSmallScreen ? 32 : 48; // Smaller on mobile
+    const gap = isSmallScreen ? 2 : 4; // Smaller gap on mobile
+    
+    return physicalIndex * (baseWidth + gap);
   };
 
   const renderGameContent = () => {
@@ -474,13 +473,13 @@ export default function Home() {
                 exit={{ opacity: 0 }}
               >
                 <motion.div
-                  className="bg-gradient-to-br from-purple-900 to-blue-900 p-6 rounded-2xl shadow-2xl max-w-lg w-full mx-4 max-h-96 overflow-y-auto"
+                  className="bg-gradient-to-br from-purple-900 to-blue-900 p-3 sm:p-6 rounded-2xl shadow-2xl max-w-sm sm:max-w-lg w-full mx-2 sm:mx-4 max-h-80 sm:max-h-96 overflow-y-auto modal-content"
                   initial={{ scale: 0.9, y: 20 }}
                   animate={{ scale: 1, y: 0 }}
                   exit={{ scale: 0.9, y: 20 }}
                 >
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-2xl font-bold text-white">🎵 Select a Song</h3>
+                  <div className="flex justify-between items-center mb-2 sm:mb-4">
+                    <h3 className="text-lg sm:text-2xl font-bold text-white">🎵 Select a Song</h3>
                     <motion.button
                       onClick={() => {
                         console.log('Refreshing songs...');
@@ -562,7 +561,7 @@ export default function Home() {
                   
                   <motion.button
                     onClick={() => setShowSongSelection(false)}
-                    className="w-full mt-4 p-3 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors"
+                    className="w-full mt-2 sm:mt-4 p-2 sm:p-3 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors text-sm sm:text-base"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
@@ -580,15 +579,15 @@ export default function Home() {
                 animate={{ opacity: 1 }}
               >
                 <motion.div
-                  className="bg-gradient-to-br from-purple-900 to-blue-900 p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4"
+                  className="bg-gradient-to-br from-purple-900 to-blue-900 p-4 sm:p-8 rounded-2xl shadow-2xl max-w-xs sm:max-w-md w-full mx-2 sm:mx-4"
                   initial={{ scale: 0.9, y: 20 }}
                   animate={{ scale: 1, y: 0 }}
                 >
                   <div className="text-center">
-                    <h3 className="text-3xl font-bold text-white mb-2">🎉 Song Complete!</h3>
-                    <div className="text-pink-300 text-lg mb-6">{selectedSong?.name}</div>
+                    <h3 className="text-2xl sm:text-3xl font-bold text-white mb-2">🎉 Song Complete!</h3>
+                    <div className="text-pink-300 text-base sm:text-lg mb-4 sm:mb-6">{selectedSong?.name}</div>
                     
-                    <div className="space-y-3 text-white mb-6">
+                    <div className="space-y-2 sm:space-y-3 text-white mb-4 sm:mb-6 text-sm sm:text-base">
                       <div className="flex justify-between">
                         <span>Score:</span>
                         <span className="font-bold text-yellow-400">{score.toLocaleString()}</span>
@@ -609,10 +608,10 @@ export default function Home() {
                       </div>
                     </div>
                     
-                    <div className="space-y-3">
+                    <div className="space-y-2 sm:space-y-3">
                       <motion.button
                         onClick={handleRestart}
-                        className="w-full p-3 bg-pink-600 hover:bg-pink-500 text-white rounded-lg transition-colors"
+                        className="w-full p-2 sm:p-3 bg-pink-600 hover:bg-pink-500 text-white rounded-lg transition-colors text-sm sm:text-base"
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                       >
@@ -620,7 +619,7 @@ export default function Home() {
                       </motion.button>
                       <motion.button
                         onClick={() => setShowSongSelection(true)}
-                        className="w-full p-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors"
+                        className="w-full p-2 sm:p-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors text-sm sm:text-base"
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                       >
@@ -634,12 +633,12 @@ export default function Home() {
 
             {/* Game Stats HUD */}
             {gameStarted && selectedSong && (
-              <div className="absolute top-4 left-4 right-4 flex justify-between items-start z-30 pointer-events-none">
+              <div className="absolute top-1 sm:top-4 left-1 sm:left-4 right-1 sm:right-4 flex justify-between items-start z-30 pointer-events-none">
                 {/* Left Stats */}
-                <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 text-white space-y-1">
-                  <div className="text-sm opacity-80">Song Progress</div>
-                  <div className="font-bold">{Math.round((gameTime / selectedSong.duration) * 100)}%</div>
-                  <div className="w-32 h-2 bg-white/20 rounded-full overflow-hidden">
+                <div className="bg-black/60 backdrop-blur-sm rounded-lg p-1.5 sm:p-3 text-white space-y-0.5 sm:space-y-1 game-stats">
+                  <div className="text-xs sm:text-sm opacity-80">Progress</div>
+                  <div className="font-bold text-sm sm:text-base">{Math.round((gameTime / selectedSong.duration) * 100)}%</div>
+                  <div className="w-16 sm:w-32 h-1 sm:h-2 bg-white/20 rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-gradient-to-r from-pink-500 to-purple-500 transition-all duration-100"
                       style={{ width: `${Math.min(100, (gameTime / selectedSong.duration) * 100)}%` }}
@@ -648,16 +647,16 @@ export default function Home() {
                 </div>
 
                 {/* Center Stats */}
-                <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 text-white text-center">
-                  <div className="text-sm opacity-80">Combo</div>
-                  <div className="text-2xl font-bold text-pink-400">{combo}x</div>
+                <div className="bg-black/60 backdrop-blur-sm rounded-lg p-1.5 sm:p-3 text-white text-center game-stats">
+                  <div className="text-xs sm:text-sm opacity-80">Combo</div>
+                  <div className="text-lg sm:text-2xl font-bold text-pink-400">{combo}x</div>
                   <div className="text-xs opacity-60">Max: {maxCombo}</div>
                 </div>
 
                 {/* Right Stats */}
-                <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 text-white text-right space-y-1">
-                  <div className="text-sm opacity-80">Accuracy</div>
-                  <div className="font-bold text-green-400">
+                <div className="bg-black/60 backdrop-blur-sm rounded-lg p-1.5 sm:p-3 text-white text-right space-y-0.5 sm:space-y-1 game-stats">
+                  <div className="text-xs sm:text-sm opacity-80">Accuracy</div>
+                  <div className="font-bold text-sm sm:text-base text-green-400">
                     {totalNotes > 0 ? Math.round(((hitNotes) / (hitNotes + missedNotes || 1)) * 100) : 100}%
                   </div>
                   <div className="text-xs opacity-60">{hitNotes}/{hitNotes + missedNotes}</div>
@@ -667,9 +666,9 @@ export default function Home() {
 
             {/* Hit Zone Indicator */}
             {gameStarted && (
-              <div className="absolute left-0 right-0 pointer-events-none z-20" style={{ top: '75%' }}>
-                <div className="h-20 bg-gradient-to-b from-transparent via-pink-500/20 to-transparent border-y-2 border-pink-500/50" />
-                <div className="absolute top-1/2 left-0 right-0 h-1 bg-pink-500 transform -translate-y-1/2" />
+              <div className="absolute left-0 right-0 pointer-events-none z-20" style={{ top: '70%' }}>
+                <div className="h-16 sm:h-20 bg-gradient-to-b from-transparent via-pink-500/20 to-transparent border-y-2 border-pink-500/50" />
+                <div className="absolute top-1/2 left-0 right-0 h-0.5 sm:h-1 bg-pink-500 transform -translate-y-1/2" />
               </div>
             )}
 
@@ -705,7 +704,7 @@ export default function Home() {
               {fallingTiles.map(tile => (
                 <motion.div
                   key={tile.id}
-                  className={`absolute w-12 h-8 rounded-lg shadow-lg ${
+                  className={`absolute w-8 sm:w-12 h-6 sm:h-8 rounded-lg shadow-lg ${
                     tile.hit 
                       ? 'bg-gradient-to-b from-green-400 to-emerald-600' 
                       : 'bg-gradient-to-b from-pink-400 to-purple-600'
@@ -750,63 +749,60 @@ export default function Home() {
               />
             </div>
 
-            {/* Game Instructions or Song Selection */}
+            {/* Song Selection Button - floating top right when no song selected */}
             {!gameStarted && !selectedSong && (
               <motion.div
-                className="absolute top-1/3 left-1/2 transform -translate-x-1/2 text-center"
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1 }}
+                className="absolute top-16 sm:top-20 right-4 z-30"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5 }}
               >
-                <div className="bg-black/60 backdrop-blur-sm text-white p-8 rounded-lg max-w-md">
-                  <h3 className="text-2xl font-bold mb-4">🎮 Piano Game</h3>
-                  <p className="text-sm leading-relaxed mb-6">
-                    Choose a song and play along! Watch for falling tiles and press the corresponding piano key 
-                    when the tile reaches the hit zone. All 15 keys available!
-                  </p>
-                  <div className="text-xs text-gray-400 mb-6 space-y-1">
-                    <div>🎮 <strong>Keyboard shortcuts:</strong></div>
-                    <div>• <strong>Space</strong> - Pause/Resume</div>
-                    <div>• <strong>Ctrl+R</strong> - Restart</div>
-                    <div>• <strong>Ctrl+S</strong> - Song selection</div>
-                    <div>• <strong>Esc</strong> - Close dialogs</div>
-                  </div>                    <motion.button
-                      onClick={() => {
-                        console.log('Choose song button clicked');
-                        setShowSongSelection(true);
-                      }}
-                      className="w-full p-4 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                    🎵 Choose a Song to Play
-                  </motion.button>
-                </div>
+                <motion.button
+                  onClick={() => {
+                    console.log('Choose song button clicked');
+                    setShowSongSelection(true);
+                  }}
+                  className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer text-sm sm:text-base"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  🎵 Choose Song
+                </motion.button>
               </motion.div>
             )}
 
+            {/* Play Button - floating when song selected but not started */}
             {!gameStarted && selectedSong && (
               <motion.div
-                className="absolute top-1/3 left-1/2 transform -translate-x-1/2 text-center"
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
+                className="absolute top-16 sm:top-20 right-4 z-30 space-y-2"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
               >
-                <div className="bg-black/60 backdrop-blur-sm text-white p-8 rounded-lg max-w-md">
-                  <h3 className="text-xl font-bold mb-2">🎵 Ready to Play</h3>
-                  <div className="text-pink-300 text-lg mb-4">{selectedSong.name}</div>
-                  <div className="text-sm text-gray-300 mb-6">
-                    ♪ {selectedSong.notes.length} notes • ⏱ {selectedSong.duration}s • 🎵 {selectedSong.bpm} BPM
+                <div className="bg-black/60 backdrop-blur-sm text-white p-3 rounded-lg text-right">
+                  <div className="text-pink-300 text-sm font-semibold">{selectedSong.name}</div>
+                  <div className="text-xs text-gray-300">
+                    ♪ {selectedSong.notes.length} notes • {selectedSong.duration}s • {selectedSong.bpm} BPM
                   </div>
-                  <p className="text-sm leading-relaxed mb-6">
-                    Press any piano key to start playing! Hit the tiles when they reach the pink line.
-                  </p>
+                </div>
+                <div className="flex space-x-2">
+                  <motion.button
+                    onClick={() => {
+                      setGameStarted(true);
+                      setGameTime(0);
+                    }}
+                    className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-xl transition-colors text-sm sm:text-base font-semibold"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    ▶ Play
+                  </motion.button>
                   <motion.button
                     onClick={() => setShowSongSelection(true)}
-                    className="w-full p-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    className="bg-purple-600 hover:bg-purple-500 text-white px-3 py-2 sm:px-4 sm:py-3 rounded-xl transition-colors text-sm sm:text-base"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                   >
-                    🔄 Choose Different Song
+                    🔄
                   </motion.button>
                 </div>
               </motion.div>

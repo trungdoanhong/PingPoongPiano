@@ -28,7 +28,7 @@ export default function PianoKey({
     <motion.div
       className={`
         relative flex flex-col items-center justify-end
-        h-32 w-12 sm:h-40 sm:w-16 rounded-lg cursor-pointer select-none
+        h-32 w-12 sm:h-40 sm:w-16 lg:h-48 lg:w-20 rounded-lg cursor-pointer select-none
         transition-all duration-150 ease-out
         ${isPressed 
           ? 'bg-gradient-to-b from-pink-400 to-purple-600 shadow-2xl shadow-pink-500/50' 
@@ -43,8 +43,8 @@ export default function PianoKey({
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       animate={{
-        y: isPressed ? 4 : 0,
-        rotateX: isPressed ? 5 : 0,
+        y: isPressed ? 2 : 0,
+        rotateX: isPressed ? 3 : 0,
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -61,8 +61,8 @@ export default function PianoKey({
     >
       {/* Key number on top (like DOIGA MUSIC) - responsive */}
       <div className={`
-        absolute top-1 sm:top-2 w-6 h-5 sm:w-8 sm:h-6 rounded-md flex items-center justify-center
-        text-xs font-bold transition-colors duration-150
+        absolute top-1 sm:top-2 lg:top-3 w-6 h-4 sm:w-8 sm:h-6 lg:w-10 lg:h-8 rounded-md flex items-center justify-center
+        text-sm sm:text-base lg:text-lg font-bold transition-colors duration-150
         ${isPressed 
           ? 'bg-white/90 text-purple-600' 
           : isWhiteKey
@@ -70,12 +70,12 @@ export default function PianoKey({
             : 'bg-gradient-to-b from-yellow-400 to-orange-400 text-gray-900'
         }
       `}>
-        {displayLabel}
+        <span className="text-sm sm:text-base lg:text-lg">{displayLabel}</span>
       </div>
 
       {/* Key number on bottom - responsive */}
       <div className={`
-        mb-1 sm:mb-2 text-lg sm:text-2xl font-bold transition-colors duration-150
+        mb-1 sm:mb-2 lg:mb-3 text-lg sm:text-2xl lg:text-3xl font-bold transition-colors duration-150
         ${isPressed 
           ? 'text-white' 
           : isWhiteKey 

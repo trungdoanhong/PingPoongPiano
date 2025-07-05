@@ -180,37 +180,32 @@ export default function PianoKeyboard({ onNotePlay, gameMode }: PianoKeyboardPro
   };
 
   return (
-    <div className="flex flex-col items-center space-y-1 sm:space-y-4">
+    <div className="flex flex-col items-center space-y-1 sm:space-y-4 piano-keyboard-container">
 
-      {/* Piano Keyboard - optimized for mobile landscape */}
+      {/* Piano Keyboard - optimized for mobile landscape with larger keys */}
       <motion.div 
-        className="bg-gradient-to-b from-gray-800 to-gray-900 p-2 sm:p-4 lg:p-6 rounded-xl sm:rounded-2xl shadow-2xl"
+        className="bg-gradient-to-b from-gray-800 to-gray-900 p-2 sm:p-3 lg:p-6 rounded-xl sm:rounded-2xl lg:rounded-3xl shadow-2xl"
         initial={{ opacity: 0, y: 50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
-        style={{
-          // Ensure keyboard scales appropriately for landscape mobile
-          transform: window.innerWidth < 768 && window.innerHeight < window.innerWidth ? 'scale(0.8)' : 'scale(1)',
-          transformOrigin: 'center'
-        }}
       >
         <div className="relative">
-          {/* Black keys row */}
-          <div className="flex justify-center space-x-1 sm:space-x-2 mb-1 sm:mb-2">
+          {/* Black keys row - improved spacing for DOIGA MUSIC layout */}
+          <div className="flex justify-center space-x-1 sm:space-x-2 lg:space-x-3 mb-2 sm:mb-3">
             {blackKeyPositions.map(({ keyNumber, position }) => (
               <div
                 key={keyNumber}
                 className={`relative ${
-                  position === 'after-1' ? 'ml-3 sm:ml-6' :
-                  position === 'after-2' ? 'ml-3 sm:ml-6' :
-                  position === 'after-4' ? 'ml-6 sm:ml-12' :
-                  position === 'after-5' ? 'ml-3 sm:ml-6' :
-                  position === 'after-6' ? 'ml-3 sm:ml-6' :
-                  position === 'after-7' ? 'ml-3 sm:ml-6' :
-                  'ml-3 sm:ml-6'
+                  position === 'after-1' ? 'ml-3 sm:ml-4 lg:ml-8' :
+                  position === 'after-2' ? 'ml-3 sm:ml-4 lg:ml-8' :
+                  position === 'after-4' ? 'ml-6 sm:ml-8 lg:ml-16' :
+                  position === 'after-5' ? 'ml-3 sm:ml-4 lg:ml-8' :
+                  position === 'after-6' ? 'ml-3 sm:ml-4 lg:ml-8' :
+                  position === 'after-7' ? 'ml-3 sm:ml-4 lg:ml-8' :
+                  'ml-3 sm:ml-4 lg:ml-8'
                 }`}
               >
-                <div className="scale-75 origin-top">
+                <div className="scale-90 sm:scale-90 lg:scale-100 origin-top">
                   <PianoKey
                     keyNumber={keyNumber}
                     isPressed={pressedKeys.has(keyNumber)}
@@ -224,8 +219,8 @@ export default function PianoKeyboard({ onNotePlay, gameMode }: PianoKeyboardPro
             ))}
           </div>
 
-          {/* White keys row */}
-          <div className="flex space-x-1 sm:space-x-2">
+          {/* White keys row - improved spacing */}
+          <div className="flex space-x-1 sm:space-x-2 lg:space-x-3">
             {[1, 2, 3, 4, 5, 6, 7, 8].map(keyNumber => (
               <PianoKey
                 key={keyNumber}

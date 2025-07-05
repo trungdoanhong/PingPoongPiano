@@ -13,9 +13,13 @@ export default function OrientationCheck({ children }: OrientationCheckProps) {
 
   useEffect(() => {
     const checkOrientation = () => {
-      // Check if screen is landscape
+      // Check if screen is landscape AND is mobile/tablet
+      const isMobile = window.innerWidth <= 1024; // Include tablets
       const isLandscapeMode = window.innerWidth > window.innerHeight;
-      setIsLandscape(isLandscapeMode);
+      const hasEnoughHeight = window.innerHeight >= 400; // Minimum height for game
+      
+      // Allow portrait on desktop, require landscape on mobile/tablet
+      setIsLandscape(!isMobile || (isLandscapeMode && hasEnoughHeight));
     };
 
     // Initial check
@@ -83,8 +87,9 @@ export default function OrientationCheck({ children }: OrientationCheckProps) {
             </p>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 mt-6">
               <p className="text-sm text-white/80 leading-relaxed">
-                🎮 For the best experience, rotate your device to landscape mode and place it on your piano. 
-                The app will detect your piano notes in real-time!
+                📱 For mobile/tablet: Please rotate to landscape mode<br/>
+                🎮 For optimal gaming experience with falling tiles<br/>
+                🎹 Piano keys will be properly sized for touch
               </p>
             </div>
           </motion.div>
